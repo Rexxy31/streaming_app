@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, BookOpen, Clock3, FileText, Heart, PlayCircle, Search, Sparkles, Tags } from "lucide-react";
+import { ArrowLeft, BookOpen, Clock3, FileText, Heart, PlayCircle, Search, Sparkles, Tags, Info } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import ServerSleepInfo from "@/components/ServerSleepInfo";
 import {
   CourseDTO,
   LessonSearchResultDTO,
@@ -222,6 +223,7 @@ export default function CourseDetailPage() {
                 <PlayCircle className="h-4 w-4" />
                 {course.bestNextLectureTitle ? "Continue lesson" : "Begin course"}
               </Link>
+              <ServerSleepInfo className="mt-4 border-black/5 bg-black/[0.02]" />
 
               <div className="mt-6 rounded-[22px] border border-black/8 bg-[var(--bg-muted)] p-4">
                 <p className="text-sm font-semibold text-[var(--text)]">Study guide</p>

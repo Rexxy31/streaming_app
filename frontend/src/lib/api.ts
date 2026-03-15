@@ -3,6 +3,15 @@ import { createClient } from "./supabase";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 const AUTH_HEADER_TTL_MS = 15_000;
 
+export async function ping(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_URL}/admin/health`, { method: "GET", cache: "no-store", signal: AbortSignal.timeout(5000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 let cachedHeaders: HeadersInit | null = null;
 let cachedHeadersAt = 0;
 

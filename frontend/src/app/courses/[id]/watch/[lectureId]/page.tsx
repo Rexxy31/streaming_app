@@ -15,8 +15,10 @@ import {
   PanelRightOpen,
   Search,
   Tags,
+  Info
 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import ServerSleepInfo from "@/components/ServerSleepInfo";
 import {
   CourseDTO,
   LectureBookmarkDTO,
@@ -497,6 +499,7 @@ export default function WatchPage() {
                       {previousLecture ? <Link href={`/courses/${courseId}/watch/${previousLecture.lecture.id}`} className="btn-secondary border-white/10 bg-white/8 px-5 py-3 text-sm text-white hover:bg-white/12 hover:text-white"><ChevronLeft className="h-4 w-4" />Previous</Link> : null}
                       {nextLecture ? <Link href={`/courses/${courseId}/watch/${nextLecture.lecture.id}`} className="btn-primary px-5 py-3 text-sm">Next lesson<ChevronRight className="h-4 w-4" /></Link> : null}
                     </div>
+                    <ServerSleepInfo className="mt-4 max-w-xl" />
                   </div>
 
                   <div className="mt-6 grid gap-6 2xl:grid-cols-[1fr_0.95fr]">
@@ -524,6 +527,7 @@ export default function WatchPage() {
                             <p className="text-xs text-white/56">Linked to {formatTimestamp(Math.floor(latestProgressRef.current.time || currentLecture?.lastPositionSeconds || 0))}</p>
                             <button onClick={addNote} className="btn-primary px-4 py-3 text-xs">Save note</button>
                           </div>
+                          <ServerSleepInfo className="mt-4 bg-transparent border-white/5" />
                         </div>
 
                         <div className="rounded-[24px] border border-white/8 bg-black/20 p-4">
