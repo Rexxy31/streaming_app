@@ -1,12 +1,14 @@
-# Build stage
-FROM node:20-alpine AS build
+# Stage 1: Install dependencies
+FROM node:20-alpine AS deps
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
-
-# Install dependencies
 COPY package*.json ./
 RUN npm install
 
-# Copy source
+# Stage 2: Build the application
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Pass build-time environment variables
@@ -21,27 +23,37 @@ ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_ADMIN_EMAIL=$NEXT_PUBLIC_ADMIN_EMAIL
 ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
-
-# Debug: verify env vars are present (showing only lengths for security)
-RUN echo "URL length: ${#NEXT_PUBLIC_SUPABASE_URL}" && \
-    echo "Key length: ${#NEXT_PUBLIC_SUPABASE_ANON_KEY}" && \
-    echo "Admin Key length: ${#SUPABASE_SERVICE_ROLE_KEY}" && \
-    echo "API URL length: ${#NEXT_PUBLIC_API_URL}"
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
 
-# Run stage
+# Stage 3: Runner
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Copy built app and necessary files
-COPY --from=build /app/public ./public
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/package.json ./package.json
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Set environment variables with defaults
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Install sharp for image optimization
+RUN npm install sharp
+
+COPY --from=builder /app/public ./public
+
+# Set the correct permission for prerender cache
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+# Automatically leverage output traces to reduce image size
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
 ENV PORT=3000
-EXPOSE ${PORT}
+ENV HOSTNAME="0.0.0.0"
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

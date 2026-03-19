@@ -4,11 +4,13 @@ import com.streamapp.dto.*;
 import com.streamapp.entity.*;
 import com.streamapp.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -49,7 +51,7 @@ public class CourseService {
     }
 
     @Transactional(readOnly = true)
-    public CourseDTO getCourseById(UUID courseId, String userId) {
+    public CourseDTO getCourseById(@NonNull UUID courseId, String userId) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new NoSuchElementException("Course not found: " + courseId));
         return mapToCourseDTO(course, userId, true);
@@ -71,10 +73,16 @@ public class CourseService {
                 .almostFinished(total > 0 && completed >= Math.max(1, total - 2));
 
         List<LectureWithProgress> orderedLectures = course.getSections().stream()
+                .filter(Objects::nonNull)
                 .sorted(Comparator.comparingInt(Section::getSortOrder))
-                .flatMap(section -> section.getLectures().stream()
-                        .sorted(Comparator.comparingInt(Lecture::getSortOrder))
-                        .map(lecture -> new LectureWithProgress(lecture, null)))
+                .flatMap(section -> {
+                    List<Lecture> lectures = section.getLectures();
+                    if (lectures == null) return Stream.empty();
+                    return lectures.stream()
+                            .filter(Objects::nonNull)
+                            .sorted(Comparator.comparingInt(Lecture::getSortOrder))
+                            .map(lecture -> new LectureWithProgress(Objects.requireNonNull(lecture), null));
+                })
                 .toList();
 
         Optional<LectureWithProgress> bestNextLecture = findBestNextLecture(orderedLectures, userId);
@@ -88,13 +96,20 @@ public class CourseService {
             Map<UUID, WatchProgress> progressMap = watchProgressRepository
                     .findByUserIdAndCourseId(userId, course.getId())
                     .stream()
+                    .filter(wp -> wp.getLecture() != null && wp.getLecture().getId() != null)
                     .collect(Collectors.toMap(wp -> wp.getLecture().getId(), wp -> wp));
 
             List<LectureWithProgress> lecturesWithProgress = course.getSections().stream()
+                    .filter(Objects::nonNull)
                     .sorted(Comparator.comparingInt(Section::getSortOrder))
-                    .flatMap(section -> section.getLectures().stream()
-                            .sorted(Comparator.comparingInt(Lecture::getSortOrder))
-                            .map(lecture -> new LectureWithProgress(lecture, progressMap.get(lecture.getId()))))
+                    .flatMap(section -> {
+                        List<Lecture> lectures = section.getLectures();
+                        if (lectures == null) return Stream.empty();
+                        return lectures.stream()
+                                .filter(Objects::nonNull)
+                                .sorted(Comparator.comparingInt(Lecture::getSortOrder))
+                                .map(lecture -> new LectureWithProgress(Objects.requireNonNull(lecture), progressMap.get(lecture.getId())));
+                    })
                     .toList();
 
             findBestNextLecture(lecturesWithProgress, userId).ifPresent(next -> builder
@@ -103,6 +118,7 @@ public class CourseService {
                     .bestNextLectureTitle(next.lecture().getTitle()));
 
             List<SectionDTO> sectionDTOs = course.getSections().stream()
+                    .filter(Objects::nonNull)
                     .map(section -> mapToSectionDTO(section, progressMap))
                     .collect(Collectors.toList());
             builder.sections(sectionDTOs);
@@ -113,6 +129,7 @@ public class CourseService {
 
     private SectionDTO mapToSectionDTO(Section section, Map<UUID, WatchProgress> progressMap) {
         List<LectureDTO> lectureDTOs = section.getLectures().stream()
+                .filter(Objects::nonNull)
                 .map(lecture -> {
                     WatchProgress wp = progressMap.get(lecture.getId());
                     return LectureDTO.builder()
@@ -143,6 +160,6 @@ public class CourseService {
                 .or(() -> lectures.stream().filter(item -> item.progress() == null || !item.progress().isCompleted()).findFirst());
     }
 
-    private record LectureWithProgress(Lecture lecture, WatchProgress progress) {
+    private record LectureWithProgress(@NonNull Lecture lecture, WatchProgress progress) {
     }
 }

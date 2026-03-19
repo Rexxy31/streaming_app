@@ -181,6 +181,7 @@ public class S3Service {
                 .filter(key -> subtitleMatchScore(normalizedVideoStem, key) > 0);
     }
 
+    @org.springframework.cache.annotation.Cacheable(value = "video-metadata", key = "#s3Key + '-transcript'")
     public List<TranscriptCueDTO> loadTranscriptCues(String s3Key) {
         return transcriptCache.computeIfAbsent(s3Key, key -> findSubtitleKey(key)
                 .map(this::loadSubtitleAsWebVtt)
@@ -618,7 +619,8 @@ public class S3Service {
     /**
      * Extracts duration from an MP4 file on S3 by using ffmpeg via a pre-signed URL.
      */
-    private Integer extractDurationFromS3(String s3Key) {
+    @org.springframework.cache.annotation.Cacheable(value = "video-metadata", key = "#s3Key")
+    public Integer extractDurationFromS3(String s3Key) {
         String url = generatePresignedUrl(s3Key);
         try {
             ProcessBuilder pb = new ProcessBuilder(

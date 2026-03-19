@@ -4,6 +4,7 @@ import com.streamapp.dto.*;
 import com.streamapp.entity.*;
 import com.streamapp.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,16 +22,35 @@ public class LearningService {
     private final CourseRepository courseRepository;
     private final LectureRepository lectureRepository;
     private final S3Service s3Service;
+    private final CourseService courseService;
+
+    @org.springframework.cache.annotation.Cacheable(value = "dashboard", key = "#userId")
+    @Transactional(readOnly = true)
+    public DashboardDTO getDashboardData(@NonNull String userId) {
+        return DashboardDTO.builder()
+                .courses(courseService.getAllCourses(userId))
+                .recentLectures(getRecentLectures(userId, 12))
+                .favoriteCourseIds(getFavoriteCourseIds(userId).stream()
+                        .map(Optional::ofNullable)
+                        .flatMap(Optional::stream)
+                        .map(UUID::toString)
+                        .collect(Collectors.toSet()))
+                .continueLearning(getContinueLearning(userId))
+                .build();
+    }
 
     @Transactional(readOnly = true)
-    public List<UUID> getFavoriteCourseIds(String userId) {
+    public List<UUID> getFavoriteCourseIds(@NonNull String userId) {
         return favoriteCourseRepository.findByUserId(userId).stream()
-                .map(favorite -> favorite.getCourse().getId())
+                .map(it -> Optional.ofNullable(it.getCourse()))
+                .flatMap(Optional::stream)
+                .map(it -> Optional.ofNullable(it.getId()))
+                .flatMap(Optional::stream)
                 .toList();
     }
 
     @Transactional
-    public List<UUID> updateFavoriteCourse(String userId, UUID courseId, boolean favorite) {
+    public List<UUID> updateFavoriteCourse(@NonNull String userId, @NonNull UUID courseId, boolean favorite) {
         if (favorite) {
             Course course = courseRepository.findById(courseId)
                     .orElseThrow(() -> new IllegalArgumentException("Course not found: " + courseId));
@@ -49,14 +69,15 @@ public class LearningService {
     }
 
     @Transactional(readOnly = true)
-    public List<LectureNoteDTO> getNotes(String userId, UUID lectureId) {
+    public List<LectureNoteDTO> getNotes(@NonNull String userId, @NonNull UUID lectureId) {
         return lectureNoteRepository.findByUserIdAndLecture_IdOrderByCreatedAtDesc(userId, lectureId).stream()
+                .filter(Objects::nonNull)
                 .map(this::mapNote)
                 .toList();
     }
 
     @Transactional
-    public LectureNoteDTO createNote(String userId, UUID lectureId, LectureNoteCreateDTO dto) {
+    public LectureNoteDTO createNote(@NonNull String userId, @NonNull UUID lectureId, @NonNull LectureNoteCreateDTO dto) {
         Lecture lecture = lectureRepository.findById(lectureId)
                 .orElseThrow(() -> new IllegalArgumentException("Lecture not found: " + lectureId));
 
@@ -64,7 +85,7 @@ public class LearningService {
                 .userId(userId)
                 .lecture(lecture)
                 .timeSeconds(dto.getTimeSeconds())
-                .text(dto.getText().trim())
+                .text(Objects.requireNonNull(dto.getText()).trim())
                 .tags(serializeTags(dto.getTags()))
                 .highlightColor(normalizeColor(dto.getHighlightColor()))
                 .build());
@@ -73,12 +94,12 @@ public class LearningService {
     }
 
     @Transactional
-    public LectureNoteDTO updateNote(String userId, UUID noteId, LectureNoteCreateDTO dto) {
+    public LectureNoteDTO updateNote(@NonNull String userId, @NonNull UUID noteId, @NonNull LectureNoteCreateDTO dto) {
         LectureNote note = lectureNoteRepository.findByIdAndUserId(noteId, userId)
                 .orElseThrow(() -> new NoSuchElementException("Note not found: " + noteId));
 
         note.setTimeSeconds(dto.getTimeSeconds());
-        note.setText(dto.getText().trim());
+        note.setText(Objects.requireNonNull(dto.getText()).trim());
         note.setTags(serializeTags(dto.getTags()));
         note.setHighlightColor(normalizeColor(dto.getHighlightColor()));
         LectureNote saved = lectureNoteRepository.save(note);
@@ -86,21 +107,22 @@ public class LearningService {
     }
 
     @Transactional
-    public void deleteNote(String userId, UUID noteId) {
+    public void deleteNote(@NonNull String userId, @NonNull UUID noteId) {
         LectureNote note = lectureNoteRepository.findByIdAndUserId(noteId, userId)
                 .orElseThrow(() -> new NoSuchElementException("Note not found: " + noteId));
         lectureNoteRepository.delete(note);
     }
 
     @Transactional(readOnly = true)
-    public List<LectureBookmarkDTO> getBookmarks(String userId, UUID lectureId) {
+    public List<LectureBookmarkDTO> getBookmarks(@NonNull String userId, @NonNull UUID lectureId) {
         return lectureBookmarkRepository.findByUserIdAndLecture_IdOrderByCreatedAtDesc(userId, lectureId).stream()
+                .filter(Objects::nonNull)
                 .map(this::mapBookmark)
                 .toList();
     }
 
     @Transactional
-    public LectureBookmarkDTO createBookmark(String userId, UUID lectureId, LectureBookmarkCreateDTO dto) {
+    public LectureBookmarkDTO createBookmark(@NonNull String userId, @NonNull UUID lectureId, @NonNull LectureBookmarkCreateDTO dto) {
         Lecture lecture = lectureRepository.findById(lectureId)
                 .orElseThrow(() -> new IllegalArgumentException("Lecture not found: " + lectureId));
 
@@ -108,7 +130,7 @@ public class LearningService {
                 .userId(userId)
                 .lecture(lecture)
                 .timeSeconds(dto.getTimeSeconds())
-                .label(dto.getLabel().trim())
+                .label(Objects.requireNonNull(dto.getLabel()).trim())
                 .tags(serializeTags(dto.getTags()))
                 .highlightColor(normalizeColor(dto.getHighlightColor()))
                 .build());
@@ -117,12 +139,12 @@ public class LearningService {
     }
 
     @Transactional
-    public LectureBookmarkDTO updateBookmark(String userId, UUID bookmarkId, LectureBookmarkCreateDTO dto) {
+    public LectureBookmarkDTO updateBookmark(@NonNull String userId, @NonNull UUID bookmarkId, @NonNull LectureBookmarkCreateDTO dto) {
         LectureBookmark bookmark = lectureBookmarkRepository.findByIdAndUserId(bookmarkId, userId)
                 .orElseThrow(() -> new NoSuchElementException("Bookmark not found: " + bookmarkId));
 
         bookmark.setTimeSeconds(dto.getTimeSeconds());
-        bookmark.setLabel(dto.getLabel().trim());
+        bookmark.setLabel(Objects.requireNonNull(dto.getLabel()).trim());
         bookmark.setTags(serializeTags(dto.getTags()));
         bookmark.setHighlightColor(normalizeColor(dto.getHighlightColor()));
         LectureBookmark saved = lectureBookmarkRepository.save(bookmark);
@@ -130,15 +152,16 @@ public class LearningService {
     }
 
     @Transactional
-    public void deleteBookmark(String userId, UUID bookmarkId) {
+    public void deleteBookmark(@NonNull String userId, @NonNull UUID bookmarkId) {
         LectureBookmark bookmark = lectureBookmarkRepository.findByIdAndUserId(bookmarkId, userId)
                 .orElseThrow(() -> new NoSuchElementException("Bookmark not found: " + bookmarkId));
         lectureBookmarkRepository.delete(bookmark);
     }
 
     @Transactional(readOnly = true)
-    public List<RecentLectureDTO> getRecentLectures(String userId, int limit) {
+    public List<RecentLectureDTO> getRecentLectures(@NonNull String userId, int limit) {
         return watchProgressRepository.findTop12ByUserIdOrderByUpdatedAtDesc(userId).stream()
+                .filter(Objects::nonNull)
                 .limit(limit)
                 .map(progress -> {
                     Lecture lecture = progress.getLecture();
@@ -163,7 +186,7 @@ public class LearningService {
     }
 
     @Transactional(readOnly = true)
-    public CourseSearchResultDTO searchLessons(String userId, String query, UUID courseId) {
+    public CourseSearchResultDTO searchLessons(@NonNull String userId, String query, UUID courseId) {
         String normalizedQuery = query == null ? "" : query.trim().toLowerCase();
         if (normalizedQuery.isBlank()) {
             return CourseSearchResultDTO.builder()
@@ -178,12 +201,16 @@ public class LearningService {
                 .orElseThrow(() -> new NoSuchElementException("Course not found: " + courseId)));
 
         Map<UUID, WatchProgress> progressByLecture = watchProgressRepository.findByUserId(userId).stream()
-                .collect(Collectors.toMap(progress -> progress.getLecture().getId(), progress -> progress, (a, b) -> a));
+                .filter(p -> p.getLecture() != null && p.getLecture().getId() != null)
+                .collect(Collectors.toMap(p -> p.getLecture().getId(), p -> p, (a, b) -> a));
 
         List<LessonSearchResultDTO> lessons = courses.stream()
+                .filter(Objects::nonNull)
                 .flatMap(course -> course.getSections().stream()
+                        .filter(Objects::nonNull)
                         .sorted(Comparator.comparingInt(Section::getSortOrder))
                         .flatMap(section -> section.getLectures().stream()
+                                .filter(Objects::nonNull)
                                 .sorted(Comparator.comparingInt(Lecture::getSortOrder))
                                 .map(lecture -> mapSearchResult(course, section, lecture, progressByLecture.get(lecture.getId()), normalizedQuery))))
                 .filter(Objects::nonNull)
@@ -191,13 +218,13 @@ public class LearningService {
                 .toList();
 
         return CourseSearchResultDTO.builder()
-                .query(query.trim())
+                .query(normalizedQuery)
                 .lessons(lessons)
                 .build();
     }
 
     @Transactional(readOnly = true)
-    public StudyGuideDTO getStudyGuide(String userId, UUID courseId) {
+    public StudyGuideDTO getStudyGuide(@NonNull String userId, @NonNull UUID courseId) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new NoSuchElementException("Course not found: " + courseId));
 
@@ -243,7 +270,7 @@ public class LearningService {
     }
 
     @Transactional(readOnly = true)
-    public ContinueLearningDTO getContinueLearning(String userId) {
+    public ContinueLearningDTO getContinueLearning(@NonNull String userId) {
         List<WatchProgress> recentProgress = watchProgressRepository.findTop12ByUserIdOrderByUpdatedAtDesc(userId);
         Set<UUID> favoriteCourseIds = new HashSet<>(getFavoriteCourseIds(userId));
 
@@ -310,11 +337,13 @@ public class LearningService {
 
     private Lecture findBestNextLecture(Course course, String userId) {
         Map<UUID, WatchProgress> progressMap = watchProgressRepository.findByUserIdAndCourseId(userId, course.getId()).stream()
+                .filter(p -> p.getLecture() != null && p.getLecture().getId() != null)
                 .collect(Collectors.toMap(progress -> progress.getLecture().getId(), progress -> progress, (a, b) -> a));
 
         return course.getSections().stream()
+                .filter(Objects::nonNull)
                 .sorted(Comparator.comparingInt(Section::getSortOrder))
-                .flatMap(section -> section.getLectures().stream().sorted(Comparator.comparingInt(Lecture::getSortOrder)))
+                .flatMap(section -> section.getLectures().stream().filter(Objects::nonNull).sorted(Comparator.comparingInt(Lecture::getSortOrder)))
                 .filter(lecture -> {
                     WatchProgress progress = progressMap.get(lecture.getId());
                     return progress == null || !progress.isCompleted();
@@ -373,7 +402,7 @@ public class LearningService {
         return Math.min(100.0, progress.getLastPositionSeconds() * 100.0 / duration);
     }
 
-    private LectureNoteDTO mapNote(LectureNote note) {
+    private LectureNoteDTO mapNote(@NonNull LectureNote note) {
         return LectureNoteDTO.builder()
                 .id(note.getId())
                 .timeSeconds(note.getTimeSeconds())
@@ -384,7 +413,7 @@ public class LearningService {
                 .build();
     }
 
-    private LectureBookmarkDTO mapBookmark(LectureBookmark bookmark) {
+    private LectureBookmarkDTO mapBookmark(@NonNull LectureBookmark bookmark) {
         return LectureBookmarkDTO.builder()
                 .id(bookmark.getId())
                 .timeSeconds(bookmark.getTimeSeconds())

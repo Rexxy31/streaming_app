@@ -13,17 +13,11 @@ import {
   Trophy,
 } from "lucide-react";
 import {
-  ContinueLearningDTO,
-  CourseDTO,
-  LessonSearchResultDTO,
-  RecentLectureDTO,
-  fetchContinueLearning,
-  fetchCourses,
-  fetchFavoriteCourseIds,
-  fetchRecentLectures,
+  fetchDashboard,
   searchLessons,
   updateFavoriteCourse,
 } from "@/lib/api";
+import useSWR, { mutate as globalMutate } from "swr";
 import { formatDisplayTitle } from "@/lib/courseTitles";
 
 function getCourseCover(title: string) {
@@ -49,53 +43,37 @@ function truncateSnippet(text: string) {
   return text.length > 96 ? `${text.slice(0, 96).trim()}...` : text;
 }
 
-type FavoriteCourseMap = Record<string, boolean>;
+
 
 export default function Dashboard() {
-  const [courses, setCourses] = useState<CourseDTO[]>([]);
-  const [recentLectures, setRecentLectures] = useState<RecentLectureDTO[]>([]);
-  const [continueLearning, setContinueLearning] = useState<ContinueLearningDTO | null>(null);
-  const [favoriteCourses, setFavoriteCourses] = useState<FavoriteCourseMap>({});
+  const { data: dashboard, error, mutate } = useSWR("dashboard", fetchDashboard);
   const [searchQuery, setSearchQuery] = useState("");
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const [lessonResults, setLessonResults] = useState<LessonSearchResultDTO[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // Derive favoriteCourses map when dashboard data changes to avoid cascading renders
+  const favoriteCourses = useMemo(() => {
+    const ids = dashboard?.favoriteCourseIds || [];
+    return Object.fromEntries(ids.map((id) => [id, true]));
+  }, [dashboard?.favoriteCourseIds]);
+
+  const courses = useMemo(() => dashboard?.courses || [], [dashboard?.courses]);
+
+  const continueLearning = dashboard?.continueLearning || null;
+  const loading = !dashboard && !error;
+
+  const [debouncedQuery, setDebouncedQuery] = useState("");
 
   useEffect(() => {
-    (async () => {
-      try {
-        const [coursesData, recentData, favoriteIds, continueData] = await Promise.all([
-          fetchCourses(),
-          fetchRecentLectures(),
-          fetchFavoriteCourseIds(),
-          fetchContinueLearning(),
-        ]);
-        setCourses(coursesData);
-        setRecentLectures(recentData);
-        setFavoriteCourses(Object.fromEntries(favoriteIds.map((id) => [id, true])));
-        setContinueLearning(continueData);
-      } catch (error) {
-        console.error("Failed to load dashboard", error);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    if (searchQuery.trim().length < 2) {
-      setLessonResults([]);
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      searchLessons(searchQuery)
-        .then((result) => setLessonResults(result.lessons.slice(0, 6)))
-        .catch((error) => console.error("Lesson search failed", error));
-    }, 220);
-
-    return () => window.clearTimeout(timeout);
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  const { data: searchResult } = useSWR(
+    debouncedQuery.trim().length >= 2 ? `search-${debouncedQuery}` : null,
+    () => searchLessons(debouncedQuery)
+  );
+
+  const lessonResults = useMemo(() => searchResult?.lessons.slice(0, 6) || [], [searchResult]);
 
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {
@@ -111,8 +89,10 @@ export default function Dashboard() {
   const totalMinutes = courses.reduce((total, course) => total + course.totalLectures * 8, 0);
 
   async function handleToggleFavorite(courseId: string) {
-    const favoriteIds = await updateFavoriteCourse(courseId, !favoriteCourses[courseId]);
-    setFavoriteCourses(Object.fromEntries(favoriteIds.map((id) => [id, true])));
+    await updateFavoriteCourse(courseId, !favoriteCourses[courseId]);
+    // Trigger global revalidation for other pages and local revalidation for dashboard data
+    mutate();
+    globalMutate("favorites");
   }
 
   if (loading) {
@@ -152,194 +132,185 @@ export default function Dashboard() {
                 </Link>
               ) : null}
               <Link href="#library" className="btn-secondary border-white/10 bg-white/10 px-6 py-4 text-sm text-white hover:bg-white/16 hover:text-white">
-                View all courses
+                <BookOpen className="h-4 w-4" />
+                Browse lesson library
               </Link>
             </div>
           </div>
 
-          <div className="grid gap-4 self-start md:grid-cols-2 lg:grid-cols-1">
-            <div className="stat-chip">
-              <span className="text-xs font-bold uppercase tracking-[0.22em] text-white/72">Courses</span>
-              <span className="text-3xl font-bold">{courses.length}</span>
-              <span className="text-sm text-white/78">Private catalog</span>
+          <div className="relative hidden flex-col justify-center lg:flex">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="glass-card border-white/10 bg-white/5 p-6 backdrop-blur-md">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent)]/20 text-[var(--accent)]">
+                    <Trophy className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-white">{completedCourses}</p>
+                    <p className="text-xs uppercase tracking-wider text-white/56">Completed</p>
+                  </div>
+                </div>
+              </div>
+              <div className="glass-card border-white/10 bg-white/5 p-6 backdrop-blur-md">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20 text-orange-400">
+                    <Clock3 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-white">{formatCatalogDuration(totalMinutes)}</p>
+                    <p className="text-xs uppercase tracking-wider text-white/56">Learning Time</p>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="stat-chip">
-              <span className="text-xs font-bold uppercase tracking-[0.22em] text-white/72">In progress</span>
-              <span className="text-3xl font-bold">{inProgressCourses}</span>
-              <span className="text-sm text-white/78">Active courses with momentum</span>
-            </div>
-            <div className="stat-chip">
-              <span className="text-xs font-bold uppercase tracking-[0.22em] text-white/72">Completed</span>
-              <span className="text-3xl font-bold">{completedCourses}</span>
-              <span className="text-sm text-white/78">Finished end-to-end</span>
-            </div>
-            <div className="stat-chip">
-              <span className="text-xs font-bold uppercase tracking-[0.22em] text-white/72">Catalog time</span>
-              <span className="text-3xl font-bold">{formatCatalogDuration(totalMinutes)}</span>
-              <span className="text-sm text-white/78">Available in your library</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-8 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="section-card p-6 md:p-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent-strong)]">Continue-learning intelligence</p>
-              <h2 className="mt-2 text-3xl font-bold text-[var(--text)]" style={{ fontFamily: "var(--font-display), sans-serif" }}>
-                {continueLearning?.pickUpWhereYouLeftOff ? formatDisplayTitle(continueLearning.pickUpWhereYouLeftOff.lectureTitle) : "Choose your next lesson"}
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
-                {continueLearning?.pickUpWhereYouLeftOff
-                  ? `${formatDisplayTitle(continueLearning.pickUpWhereYouLeftOff.courseTitle)} · ${continueLearning.pickUpWhereYouLeftOff.progressPercentage}% watched`
-                  : "As soon as you start learning, the next best action will show up here."}
+            <div className="mt-4 flex animate-pulse items-center gap-3 rounded-2xl border border-white/10 bg-[var(--accent)]/10 p-5 backdrop-blur-md">
+              <div className="h-2 w-2 rounded-full bg-[var(--accent)]" />
+              <p className="text-sm font-medium text-white/90">
+                {inProgressCourses} courses currently in progress
               </p>
             </div>
-            {continueLearning?.pickUpWhereYouLeftOff ? (
-              <Link href={`/courses/${continueLearning.pickUpWhereYouLeftOff.courseId}/watch/${continueLearning.pickUpWhereYouLeftOff.lectureId}`} className="btn-primary px-6 py-4 text-sm">
-                Jump back in
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            ) : null}
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {continueLearning?.pickUpWhereYouLeftOff ? (
-              <Link href={`/courses/${continueLearning.pickUpWhereYouLeftOff.courseId}/watch/${continueLearning.pickUpWhereYouLeftOff.lectureId}`} className="theme-outline-card rounded-[22px] p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--accent-strong)]">Pick up where you left off</p>
-                <p className="mt-2 text-sm font-semibold text-[var(--text)]">{formatDisplayTitle(continueLearning.pickUpWhereYouLeftOff.lectureTitle)}</p>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">{formatDisplayTitle(continueLearning.pickUpWhereYouLeftOff.courseTitle)}</p>
-              </Link>
-            ) : null}
-            {continueLearning?.almostFinished ? (
-              <Link href={`/courses/${continueLearning.almostFinished.courseId}/watch/${continueLearning.almostFinished.lectureId}`} className="theme-outline-card rounded-[22px] p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-700">Almost finished</p>
-                <p className="mt-2 text-sm font-semibold text-[var(--text)]">{formatDisplayTitle(continueLearning.almostFinished.lectureTitle)}</p>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">{continueLearning.almostFinished.progressPercentage}% complete</p>
-              </Link>
-            ) : null}
-            {(continueLearning?.bestNextLessons || []).slice(0, 1).map((item) => (
-              <Link key={item.lectureId} href={`/courses/${item.courseId}/watch/${item.lectureId}`} className="theme-outline-card rounded-[22px] p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Best next lesson</p>
-                <p className="mt-2 text-sm font-semibold text-[var(--text)]">{formatDisplayTitle(item.lectureTitle)}</p>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">{formatDisplayTitle(item.courseTitle)}</p>
-              </Link>
-            ))}
           </div>
         </div>
 
-        <div className="soft-panel p-6">
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-amber-100 p-3 text-amber-700">
-              <Clock3 className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-amber-700">Recent activity</p>
-              <h2 className="mt-1 text-2xl font-bold text-[var(--text)]" style={{ fontFamily: "var(--font-display), sans-serif" }}>
-                Continue from history
-              </h2>
-            </div>
-          </div>
-          <div className="mt-5 space-y-3">
-            {recentLectures.length === 0 ? (
-              <div className="rounded-[22px] border border-dashed border-black/10 px-4 py-6 text-sm text-[var(--text-muted)]">
-                Your viewing history will appear here once you start watching.
-              </div>
-            ) : recentLectures.slice(0, 4).map((lecture) => (
-              <Link key={lecture.lectureId} href={`/courses/${lecture.courseId}/watch/${lecture.lectureId}`} className="theme-outline-card flex items-center justify-between rounded-[22px] px-4 py-4">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-[var(--text)]">{formatDisplayTitle(lecture.lectureTitle)}</p>
-                  <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{formatDisplayTitle(lecture.courseTitle)} · {lecture.progressPercentage}% watched</p>
-                </div>
-                <ArrowRight className="h-4 w-4 flex-shrink-0 text-[var(--text-muted)]" />
-              </Link>
-            ))}
-          </div>
-        </div>
+        <div className="absolute right-[-10%] top-[-100%] h-[200%] w-[50%] animate-pulse rounded-full bg-[var(--accent)]/15 blur-[120px]" />
       </section>
 
-      <section id="library" className="mt-8">
-        <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+      <section id="library" className="mt-16">
+        <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--accent-strong)]">Library</p>
-            <h2 className="mt-2 text-3xl font-bold text-[var(--text)] md:text-4xl" style={{ fontFamily: "var(--font-display), sans-serif" }}>Courses and lessons</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">Search now reaches into lesson titles and transcript snippets, not just course names.</p>
+            <h2 className="text-3xl font-bold tracking-tight text-[var(--text)]" style={{ fontFamily: "var(--font-display), sans-serif" }}>
+              Lesson Library
+            </h2>
+            <p className="mt-2 text-[var(--text-muted)]">Dive into your enrolled courses or discover new topics.</p>
           </div>
 
-          <div className="flex w-full flex-col gap-3 md:max-w-md">
-            <div className="theme-input-shell flex items-center gap-3 rounded-full px-4 py-3">
-              <Search className="h-4 w-4 text-[var(--text-muted)]" />
-              <input type="text" placeholder="Search courses, lessons, and transcripts" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-transparent text-sm text-[var(--text)] outline-none placeholder:text-[var(--text-muted)]" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+             <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+              <input
+                type="text"
+                placeholder="Search transcripts or titles..."
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] py-3 pl-10 pr-4 text-sm transition-all focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/10 sm:w-80"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+
+              {lessonResults.length > 0 && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-96 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-2xl backdrop-blur-xl">
+                  <div className="mb-2 px-3 pt-2 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                    Transcript & Title Hits
+                  </div>
+                  {lessonResults.map((lesson) => (
+                    <Link
+                      key={lesson.lectureId}
+                      href={`/courses/${lesson.courseId}/watch/${lesson.lectureId}`}
+                      className="group block rounded-xl px-3 py-3 hover:bg-[var(--accent)]/5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-[var(--text)] group-hover:text-[var(--accent)]">{lesson.lectureTitle}</p>
+                        {lesson.matchedInTitle && <Sparkles className="h-3 w-3 text-[var(--accent)]" />}
+                      </div>
+                      <p className="text-[11px] text-[var(--text-muted)]">{lesson.courseTitle}</p>
+                      {lesson.transcriptMatches.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {lesson.transcriptMatches.map((hit, idx) => (
+                            <span key={`${lesson.lectureId}-hit-${idx}`} className="rounded border border-[var(--border)] bg-[var(--surface-muted)] px-1.5 py-0.5 text-[9px] text-[var(--text-muted)] group-hover:border-[var(--accent)]/20 group-hover:bg-[var(--accent)]/10">
+                              &quot;{truncateSnippet(hit.text)}&quot;
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
-            <button onClick={() => setShowFavoritesOnly((value) => !value)} className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold ${showFavoritesOnly ? "bg-[var(--text)] text-white" : "theme-input-shell text-[var(--text)]"}`}>
+
+            <button
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
+                showFavoritesOnly
+                  ? "bg-red-500/10 text-red-500"
+                  : "bg-[var(--surface-muted)] text-[var(--text-muted)] hover:bg-[var(--surface)]"
+              }`}
+            >
               <Heart className={`h-4 w-4 ${showFavoritesOnly ? "fill-current" : ""}`} />
-              {showFavoritesOnly ? "Showing favorites" : "Filter favorites"}
+              {showFavoritesOnly ? "Favorites Only" : "Show All"}
             </button>
           </div>
         </div>
 
-        {lessonResults.length > 0 ? (
-          <div className="section-card mt-6 p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent-strong)]">Helpful search results</p>
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {lessonResults.map((result) => (
-                <Link key={`${result.lectureId}-${result.sectionId}`} href={`/courses/${result.courseId}/watch/${result.lectureId}`} className="theme-outline-card rounded-[22px] p-4">
-                  <p className="text-sm font-semibold text-[var(--text)]">{formatDisplayTitle(result.lectureTitle)}</p>
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">{formatDisplayTitle(result.courseTitle)} · {formatDisplayTitle(result.sectionTitle)}</p>
-                  <p className="mt-3 text-xs text-[var(--text-muted)]">
-                    {result.matchedInTranscript && result.transcriptMatches[0] ? truncateSnippet(result.transcriptMatches[0].text) : "Matched lesson title"}
-                  </p>
-                </Link>
-              ))}
-            </div>
+        {filteredCourses.length === 0 ? (
+          <div className="glass-card flex flex-col items-center justify-center py-20 text-center">
+            <Search className="h-10 w-10 text-[var(--text-muted)]/30" />
+            <h3 className="mt-4 text-lg font-bold text-[var(--text)]">No results found</h3>
+            <p className="mt-1 text-[var(--text-muted)]">Try adjusting your filters or search terms.</p>
           </div>
-        ) : null}
-
-        <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {filteredCourses.map((course) => {
-            const courseTitle = formatDisplayTitle(course.title);
-            const isFavorite = Boolean(favoriteCourses[course.id]);
-            return (
-              <article key={course.id} className="section-card h-full overflow-hidden">
-                <div className="relative overflow-hidden px-6 py-7 text-white" style={{ background: getCourseCover(course.title) }}>
-                  <div className="absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/10 blur-2xl" />
-                  <div className="relative flex items-start justify-between gap-4">
-                    <div className="max-w-[80%]">
-                      <p className="text-xs font-bold uppercase tracking-[0.24em] text-white/58">Course</p>
-                      <h3 className="mt-3 text-2xl font-bold leading-tight text-white/95" style={{ fontFamily: "var(--font-display), sans-serif" }}>{courseTitle}</h3>
-                    </div>
-                    <button onClick={() => handleToggleFavorite(course.id)} className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl border ${isFavorite ? "border-white/0 bg-white text-[#171717]" : "border-white/10 bg-white/10 text-white"}`} aria-label={isFavorite ? "Remove favorite" : "Add favorite"}>
-                      <Heart className={`h-5 w-5 ${isFavorite ? "fill-current" : ""}`} />
-                    </button>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredCourses.map((course) => (
+              <div key={course.id} className="course-card glass-card group flex flex-col border-none bg-[var(--surface)] hover:z-10">
+                <div
+                  className="relative aspect-video w-full"
+                  style={{ backgroundColor: getCourseCover(course.title) }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <p className="text-sm font-bold text-white line-clamp-2">{formatDisplayTitle(course.title)}</p>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleToggleFavorite(course.id);
+                    }}
+                    className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition-all hover:bg-white hover:text-red-500"
+                  >
+                    <Heart className={`h-4 w-4 ${favoriteCourses[course.id] ? "fill-current text-red-500" : ""}`} />
+                  </button>
                 </div>
-                <div className="p-6">
-                  <div className="flex flex-wrap gap-2">
-                    <span className="pill-badge"><BookOpen className="h-3.5 w-3.5" />{course.totalLectures} lessons</span>
-                    {course.almostFinished ? <span className="pill-badge"><Trophy className="h-3.5 w-3.5" />Almost finished</span> : null}
-                  </div>
-                  <div className="mt-6">
-                    <div className="mb-2 flex items-center justify-between text-sm">
-                      <span className="font-semibold text-[var(--text)]">Progress</span>
-                      <span className="font-bold text-[var(--accent-strong)]">{course.progressPercentage}%</span>
+
+                <div className="flex flex-1 flex-col p-5">
+                  <div className="mb-4 flex items-center justify-between text-xs text-[var(--text-muted)]">
+                    <div className="flex items-center gap-1.5">
+                      <BookOpen className="h-3.5 w-3.5" />
+                      <span>{course.totalLectures} lessons</span>
                     </div>
-                    <div className="h-3 overflow-hidden rounded-full bg-[var(--bg-muted)]">
-                      <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${course.progressPercentage}%` }} />
-                    </div>
+                    {course.progressPercentage > 0 && (
+                      <div className="flex items-center gap-1.5 text-[var(--accent)] font-medium">
+                        <PlayCircle className="h-3.5 w-3.5" />
+                        <span>{Math.round(course.progressPercentage)}% done</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="mt-6 flex items-center justify-between">
-                    <p className="text-sm text-[var(--text-muted)]">{course.bestNextLectureTitle ? `Best next: ${formatDisplayTitle(course.bestNextLectureTitle)}` : "Open course"}</p>
-                    <Link href={`/courses/${course.id}`} className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--text)]">
-                      Open
+
+                  <div className="mt-auto flex items-center gap-3">
+                    <Link
+                      href={`/courses/${course.id}`}
+                      className="btn-secondary flex-1 py-3 text-xs"
+                    >
+                      View Details
+                    </Link>
+                    <Link
+                      href={course.bestNextLectureId ? `/courses/${course.id}/watch/${course.bestNextLectureId}` : `/courses/${course.id}`}
+                      className="btn-primary flex h-10 w-10 items-center justify-center p-0"
+                    >
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                   </div>
                 </div>
-              </article>
-            );
-          })}
-        </div>
+
+                {course.progressPercentage > 0 && (
+                  <div className="absolute bottom-0 left-0 h-1 bg-[var(--accent)]/30" style={{ width: "100%" }}>
+                    <div
+                      className="h-full bg-[var(--accent)] transition-all duration-500"
+                      style={{ width: `${course.progressPercentage}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );

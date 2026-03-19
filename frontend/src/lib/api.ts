@@ -220,6 +220,13 @@ export interface CourseHealthDTO {
   lectureDiagnostics: LectureHealthDTO[];
 }
 
+export interface DashboardDTO {
+  courses: CourseDTO[];
+  recentLectures: RecentLectureDTO[];
+  favoriteCourseIds: string[];
+  continueLearning: ContinueLearningDTO;
+}
+
 export interface AdminHealthSummaryDTO {
   totalCourses: number;
   totalLectures: number;
@@ -228,7 +235,7 @@ export interface AdminHealthSummaryDTO {
   courses: CourseHealthDTO[];
 }
 
-export type SyncProgress = {
+export interface SyncProgress {
   active: boolean;
   status: string;
   current: number;
@@ -239,11 +246,11 @@ export type SyncProgress = {
 const subtitleCache = new Map<string, Promise<string | null>>();
 
 export function fetchCourses(): Promise<CourseDTO[]> {
-  return authedJson<CourseDTO[]>(`${API_URL}/courses`, { cache: "no-store" });
+  return authedJson<CourseDTO[]>(`${API_URL}/courses`);
 }
 
 export function fetchCourse(id: string): Promise<CourseDTO> {
-  return authedJson<CourseDTO>(`${API_URL}/courses/${id}`, { cache: "no-store" });
+  return authedJson<CourseDTO>(`${API_URL}/courses/${id}`);
 }
 
 export function fetchStreamUrl(lectureId: string): Promise<StreamUrlDTO> {
@@ -408,4 +415,8 @@ export function fetchCourseHealth(): Promise<AdminHealthSummaryDTO> {
   return authedJson<AdminHealthSummaryDTO>(`${API_URL}/admin/course-health`, {
     cache: "no-store",
   });
+}
+
+export function fetchDashboard(): Promise<DashboardDTO> {
+  return authedJson<DashboardDTO>(`${API_URL}/learning/dashboard`);
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import ClientNav from "@/components/ClientNav";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import SWRConfigContext from "@/components/SWRConfigContext";
 
 export const metadata: Metadata = {
   title: "StreamApp | Premium Course Library",
@@ -18,7 +19,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         }}
       >
         <ThemeProvider>
-          <ClientNav>{children}</ClientNav>
+          <SWRConfigContext>
+            <ClientNav>{children}</ClientNav>
+          </SWRConfigContext>
         </ThemeProvider>
       </body>
     </html>

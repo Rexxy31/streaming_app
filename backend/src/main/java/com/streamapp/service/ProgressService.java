@@ -6,10 +6,12 @@ import com.streamapp.entity.WatchProgress;
 import com.streamapp.repository.LectureRepository;
 import com.streamapp.repository.WatchProgressRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -20,12 +22,14 @@ public class ProgressService {
     private final LectureRepository lectureRepository;
 
     @Transactional
-    public WatchProgress updateProgress(String userId, ProgressUpdateDTO dto) {
-        Lecture lecture = lectureRepository.findById(dto.getLectureId())
-                .orElseThrow(() -> new NoSuchElementException("Lecture not found: " + dto.getLectureId()));
+    public WatchProgress updateProgress(String userId, @NonNull ProgressUpdateDTO dto) {
+        UUID lectureId = Objects.requireNonNull(dto.getLectureId(), "Lecture ID must not be null");
+        
+        Lecture lecture = lectureRepository.findById(lectureId)
+                .orElseThrow(() -> new NoSuchElementException("Lecture not found: " + lectureId));
 
         WatchProgress progress = watchProgressRepository
-                .findByUserIdAndLectureId(userId, dto.getLectureId())
+                .findByUserIdAndLectureId(userId, lectureId)
                 .orElseGet(() -> WatchProgress.builder()
                         .userId(userId)
                         .lecture(lecture)
@@ -38,7 +42,7 @@ public class ProgressService {
     }
 
     @Transactional(readOnly = true)
-    public WatchProgress getProgress(String userId, UUID lectureId) {
+    public WatchProgress getProgress(String userId, @NonNull UUID lectureId) {
         return watchProgressRepository.findByUserIdAndLectureId(userId, lectureId)
                 .orElse(WatchProgress.builder()
                         .userId(userId)

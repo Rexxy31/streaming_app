@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -17,7 +17,6 @@ import {
 import { createClient } from "@/lib/supabase";
 import {
   AdminHealthSummaryDTO,
-  CourseDTO,
   SyncProgress,
   fetchCourse,
   fetchCourses,
@@ -47,61 +46,7 @@ export default function AdminDashboard() {
   const [inviting, setInviting] = useState(false);
   const supabase = createClient();
 
-  useEffect(() => {
-    fetchUsers();
-    fetchHealth();
-  }, []);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (scanning || refreshing) {
-      interval = setInterval(async () => {
-        try {
-          const status = await fetchScanStatus();
-          setProgress(status);
-          if (!status.active) {
-            setScanning(false);
-            setRefreshing(false);
-            fetchHealth();
-          }
-        } catch (error) {
-          console.error("Failed to fetch scan status", error);
-        }
-      }, 1000);
-    } else {
-      setProgress(null);
-    }
-
-    return () => clearInterval(interval);
-  }, [refreshing, scanning]);
-
-  async function fetchHealth() {
-    setLoadingHealth(true);
-    setHealthError(null);
-    try {
-      const summary = await fetchCourseHealth();
-      if (summary.totalCourses > 0) {
-        setHealth(summary);
-        return;
-      }
-
-      const fallback = await buildSubtitleFallback();
-      setHealth(fallback);
-    } catch (error) {
-      console.error("Failed to fetch health summary", error);
-      try {
-        const fallback = await buildSubtitleFallback();
-        setHealth(fallback);
-      } catch (fallbackError) {
-        console.error("Fallback subtitle summary failed", fallbackError);
-        setHealthError("Unable to load subtitle counts right now.");
-      }
-    } finally {
-      setLoadingHealth(false);
-    }
-  }
-
-  async function buildSubtitleFallback(): Promise<AdminHealthSummaryDTO> {
+  const buildSubtitleFallback = useCallback(async (): Promise<AdminHealthSummaryDTO> => {
     const courses = await fetchCourses();
     const detailedCourses = await Promise.all(courses.map((course) => fetchCourse(course.id)));
 
@@ -130,9 +75,35 @@ export default function AdminDashboard() {
       totalMissingSubtitles: courseSummaries.reduce((sum, course) => sum + course.missingSubtitleCount, 0),
       courses: courseSummaries,
     };
-  }
+  }, []);
 
-  async function fetchUsers() {
+  const fetchHealth = useCallback(async () => {
+    setLoadingHealth(true);
+    setHealthError(null);
+    try {
+      const summary = await fetchCourseHealth();
+      if (summary.totalCourses > 0) {
+        setHealth(summary);
+        return;
+      }
+
+      const fallback = await buildSubtitleFallback();
+      setHealth(fallback);
+    } catch (error) {
+      console.error("Failed to fetch health summary", error);
+      try {
+        const fallback = await buildSubtitleFallback();
+        setHealth(fallback);
+      } catch (fallbackError) {
+        console.error("Fallback subtitle summary failed", fallbackError);
+        setHealthError("Unable to load subtitle counts right now.");
+      }
+    } finally {
+      setLoadingHealth(false);
+    }
+  }, [buildSubtitleFallback]);
+
+  const fetchUsers = useCallback(async () => {
     try {
       setLoadingUsers(true);
       const {
@@ -151,7 +122,35 @@ export default function AdminDashboard() {
     } finally {
       setLoadingUsers(false);
     }
-  }
+  }, [supabase.auth]);
+
+  useEffect(() => {
+    fetchUsers();
+    fetchHealth();
+  }, [fetchUsers, fetchHealth]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (scanning || refreshing) {
+      interval = setInterval(async () => {
+        try {
+          const status = await fetchScanStatus();
+          setProgress(status);
+          if (!status.active) {
+            setScanning(false);
+            setRefreshing(false);
+            fetchHealth();
+          }
+        } catch (error) {
+          console.error("Failed to fetch scan status", error);
+        }
+      }, 1000);
+    } else {
+      setProgress(null);
+    }
+
+    return () => clearInterval(interval);
+  }, [refreshing, scanning, fetchHealth]);
 
   async function handleInviteUser(e: React.FormEvent) {
     e.preventDefault();

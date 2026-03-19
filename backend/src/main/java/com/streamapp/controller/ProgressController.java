@@ -11,6 +11,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 @RestController
@@ -24,8 +25,8 @@ public class ProgressController {
     public ResponseEntity<Map<String, Object>> updateProgress(
             @Valid @RequestBody ProgressUpdateDTO dto,
             @AuthenticationPrincipal Jwt jwt) {
-        String userId = jwt.getSubject();
-        WatchProgress wp = progressService.updateProgress(userId, dto);
+        String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
+        WatchProgress wp = progressService.updateProgress(userId, Objects.requireNonNull(dto));
         return ResponseEntity.ok(Map.of(
                 "lectureId", wp.getLecture().getId(),
                 "lastPositionSeconds", wp.getLastPositionSeconds(),
@@ -37,8 +38,8 @@ public class ProgressController {
     public ResponseEntity<Map<String, Object>> getProgress(
             @PathVariable UUID lectureId,
             @AuthenticationPrincipal Jwt jwt) {
-        String userId = jwt.getSubject();
-        WatchProgress wp = progressService.getProgress(userId, lectureId);
+        String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
+        WatchProgress wp = progressService.getProgress(userId, Objects.requireNonNull(lectureId));
         return ResponseEntity.ok(Map.of(
                 "lastPositionSeconds", wp.getLastPositionSeconds(),
                 "completed", wp.isCompleted()

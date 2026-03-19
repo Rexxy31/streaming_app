@@ -10,7 +10,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 @RestController
@@ -21,105 +21,110 @@ public class LearningController {
     private final LearningService learningService;
 
     @GetMapping("/favorites")
-    public ResponseEntity<List<UUID>> getFavorites(@AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(learningService.getFavoriteCourseIds(jwt.getSubject()));
+    public List<UUID> getFavoriteCourseIds(@AuthenticationPrincipal Jwt jwt) {
+        String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
+        return learningService.getFavoriteCourseIds(userId);
     }
 
-    @PutMapping("/favorites/{courseId}")
-    public ResponseEntity<Map<String, Object>> updateFavorite(
+    @PostMapping("/favorites/{courseId}")
+    public List<UUID> updateFavoriteCourse(
             @PathVariable UUID courseId,
-            @Valid @RequestBody FavoriteCourseUpdateDTO dto,
+            @RequestParam boolean favorite,
             @AuthenticationPrincipal Jwt jwt) {
-        List<UUID> favoriteIds = learningService.updateFavoriteCourse(jwt.getSubject(), courseId, dto.getFavorite());
-        return ResponseEntity.ok(Map.of("favoriteCourseIds", favoriteIds));
+        String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
+        return learningService.updateFavoriteCourse(userId, Objects.requireNonNull(courseId), favorite);
     }
 
-    @GetMapping("/lectures/{lectureId}/notes")
-    public ResponseEntity<List<LectureNoteDTO>> getNotes(
+    @GetMapping("/notes/{lectureId}")
+    public List<LectureNoteDTO> getNotes(
             @PathVariable UUID lectureId,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(learningService.getNotes(jwt.getSubject(), lectureId));
+        String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
+        return learningService.getNotes(userId, Objects.requireNonNull(lectureId));
     }
 
-    @PostMapping("/lectures/{lectureId}/notes")
-    public ResponseEntity<LectureNoteDTO> createNote(
+    @PostMapping("/notes/{lectureId}")
+    public LectureNoteDTO createNote(
             @PathVariable UUID lectureId,
             @Valid @RequestBody LectureNoteCreateDTO dto,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(learningService.createNote(jwt.getSubject(), lectureId, dto));
+        String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
+        return learningService.createNote(userId, Objects.requireNonNull(lectureId), Objects.requireNonNull(dto));
     }
 
     @PutMapping("/notes/{noteId}")
-    public ResponseEntity<LectureNoteDTO> updateNote(
+    public LectureNoteDTO updateNote(
             @PathVariable UUID noteId,
             @Valid @RequestBody LectureNoteCreateDTO dto,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(learningService.updateNote(jwt.getSubject(), noteId, dto));
+        String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
+        return learningService.updateNote(userId, Objects.requireNonNull(noteId), Objects.requireNonNull(dto));
     }
 
     @DeleteMapping("/notes/{noteId}")
     public ResponseEntity<Void> deleteNote(
             @PathVariable UUID noteId,
             @AuthenticationPrincipal Jwt jwt) {
-        learningService.deleteNote(jwt.getSubject(), noteId);
+        String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
+        learningService.deleteNote(userId, Objects.requireNonNull(noteId));
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/lectures/{lectureId}/bookmarks")
-    public ResponseEntity<List<LectureBookmarkDTO>> getBookmarks(
+    @GetMapping("/bookmarks/{lectureId}")
+    public List<LectureBookmarkDTO> getBookmarks(
             @PathVariable UUID lectureId,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(learningService.getBookmarks(jwt.getSubject(), lectureId));
+        String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
+        return learningService.getBookmarks(userId, Objects.requireNonNull(lectureId));
     }
 
-    @PostMapping("/lectures/{lectureId}/bookmarks")
-    public ResponseEntity<LectureBookmarkDTO> createBookmark(
+    @PostMapping("/bookmarks/{lectureId}")
+    public LectureBookmarkDTO createBookmark(
             @PathVariable UUID lectureId,
             @Valid @RequestBody LectureBookmarkCreateDTO dto,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(learningService.createBookmark(jwt.getSubject(), lectureId, dto));
+        String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
+        return learningService.createBookmark(userId, Objects.requireNonNull(lectureId), Objects.requireNonNull(dto));
     }
 
     @PutMapping("/bookmarks/{bookmarkId}")
-    public ResponseEntity<LectureBookmarkDTO> updateBookmark(
+    public LectureBookmarkDTO updateBookmark(
             @PathVariable UUID bookmarkId,
             @Valid @RequestBody LectureBookmarkCreateDTO dto,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(learningService.updateBookmark(jwt.getSubject(), bookmarkId, dto));
+        String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
+        return learningService.updateBookmark(userId, Objects.requireNonNull(bookmarkId), Objects.requireNonNull(dto));
     }
 
     @DeleteMapping("/bookmarks/{bookmarkId}")
     public ResponseEntity<Void> deleteBookmark(
             @PathVariable UUID bookmarkId,
             @AuthenticationPrincipal Jwt jwt) {
-        learningService.deleteBookmark(jwt.getSubject(), bookmarkId);
+        String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
+        learningService.deleteBookmark(userId, Objects.requireNonNull(bookmarkId));
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/recent")
-    public ResponseEntity<List<RecentLectureDTO>> getRecent(
-            @RequestParam(defaultValue = "12") int limit,
-            @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(learningService.getRecentLectures(jwt.getSubject(), Math.min(Math.max(limit, 1), 24)));
-    }
-
     @GetMapping("/search")
-    public ResponseEntity<CourseSearchResultDTO> searchLessons(
-            @RequestParam String q,
+    public CourseSearchResultDTO searchLessons(
+            @RequestParam String query,
             @RequestParam(required = false) UUID courseId,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(learningService.searchLessons(jwt.getSubject(), q, courseId));
+        String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
+        return learningService.searchLessons(userId, query, courseId);
     }
 
-    @GetMapping("/courses/{courseId}/study-guide")
-    public ResponseEntity<StudyGuideDTO> getStudyGuide(
+    @GetMapping("/study-guide/{courseId}")
+    public StudyGuideDTO getStudyGuide(
             @PathVariable UUID courseId,
             @AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(learningService.getStudyGuide(jwt.getSubject(), courseId));
+        String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
+        return learningService.getStudyGuide(userId, Objects.requireNonNull(courseId));
     }
 
-    @GetMapping("/continue-learning")
-    public ResponseEntity<ContinueLearningDTO> getContinueLearning(@AuthenticationPrincipal Jwt jwt) {
-        return ResponseEntity.ok(learningService.getContinueLearning(jwt.getSubject()));
+    @GetMapping("/continue")
+    public ContinueLearningDTO getContinueLearning(@AuthenticationPrincipal Jwt jwt) {
+        String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
+        return learningService.getContinueLearning(userId);
     }
 }

@@ -2,11 +2,11 @@
 
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BookOpen, Lock, Mail, ShieldCheck } from "lucide-react";
 
 export default function LoginPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,7 +17,7 @@ export default function LoginPage() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) router.push("/");
     });
-  }, []);
+  }, [router, supabase.auth]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -74,15 +74,15 @@ export default function LoginPage() {
           </div>
         </section>
 
-        <section className="rounded-[32px] border border-white/10 bg-[rgba(255,255,255,0.92)] p-8 text-[var(--text)] shadow-[0_30px_100px_rgba(0,0,0,0.35)] md:p-10">
+        <section className="rounded-[32px] border border-white/10 bg-white p-8 text-black shadow-[0_30px_100px_rgba(0,0,0,0.35)] md:p-10">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent-strong)]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#a435f0]/10 text-[#7f27bf]">
               <ShieldCheck className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[var(--accent-strong)]">Welcome back</p>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#7f27bf]">Welcome back</p>
               <h2
-                className="mt-1 text-3xl font-bold"
+                className="mt-1 text-3xl font-bold !text-black"
                 style={{ fontFamily: "var(--font-display), sans-serif" }}
               >
                 Sign in
@@ -90,33 +90,33 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5 text-black">
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-muted)]">Email</span>
-              <div className="flex items-center gap-3 rounded-[20px] border border-black/8 bg-white px-4 py-4 shadow-[0_10px_30px_rgba(23,20,18,0.06)]">
-                <Mail className="h-4 w-4 text-[var(--text-muted)]" />
+              <span className="mb-2 block text-sm font-semibold text-slate-600">Email</span>
+              <div className="flex items-center gap-3 rounded-[20px] border border-black/10 bg-white px-4 py-4 shadow-[0_10px_30px_rgba(23,20,18,0.06)]">
+                <Mail className="h-4 w-4 text-slate-500" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full bg-transparent text-sm outline-none placeholder:text-[var(--text-muted)]"
+                  className="w-full bg-transparent text-sm !text-black outline-none placeholder:text-slate-400"
                   placeholder="you@example.com"
                 />
               </div>
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[var(--text-muted)]">Password</span>
-              <div className="flex items-center gap-3 rounded-[20px] border border-black/8 bg-white px-4 py-4 shadow-[0_10px_30px_rgba(23,20,18,0.06)]">
-                <Lock className="h-4 w-4 text-[var(--text-muted)]" />
+              <span className="mb-2 block text-sm font-semibold text-slate-600">Password</span>
+              <div className="flex items-center gap-3 rounded-[20px] border border-black/10 bg-white px-4 py-4 shadow-[0_10px_30px_rgba(23,20,18,0.06)]">
+                <Lock className="h-4 w-4 text-slate-500" />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
-                  className="w-full bg-transparent text-sm outline-none placeholder:text-[var(--text-muted)]"
+                  className="w-full bg-transparent text-sm !text-black outline-none placeholder:text-slate-400"
                   placeholder="Enter your password"
                 />
               </div>

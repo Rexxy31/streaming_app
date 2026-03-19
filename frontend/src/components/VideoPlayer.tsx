@@ -35,6 +35,7 @@ interface VideoPlayerProps {
   seekToSeconds?: number | null;
   chapters?: ChapterMarker[];
   onCopyTimestampLink?: (seconds: number) => void;
+  onToast?: (message: string) => void;
 }
 
 const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -51,6 +52,7 @@ export default function VideoPlayer({
   seekToSeconds = null,
   chapters = [],
   onCopyTimestampLink,
+  onToast,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -67,6 +69,10 @@ export default function VideoPlayer({
   const [playbackRate, setPlaybackRate] = useState(1);
   const [captionsEnabled, setCaptionsEnabled] = useState(false);
   const [speedMenuOpen, setSpeedMenuOpen] = useState(false);
+  const [isTouchDevice] = useState(() => 
+    typeof window !== "undefined" ? window.matchMedia("(pointer: coarse)").matches : false
+  );
+  const lastTapRef = useRef<{ time: number; x: number } | null>(null);
   const subtitleCues = useMemo(() => parseSubtitleText(subtitleText), [subtitleText]);
   const activeCue = useMemo(
     () => subtitleCues.find((cue) => currentTime >= cue.start && currentTime <= cue.end) ?? null,
@@ -96,9 +102,9 @@ export default function VideoPlayer({
   }, [initialTime, onDurationLoaded]);
 
   useEffect(() => {
-    if (seekToSeconds === null || !videoRef.current) return;
+    if (seekToSeconds == null || !videoRef.current) return;
     videoRef.current.currentTime = seekToSeconds;
-    setCurrentTime(seekToSeconds);
+    // Don't call setCurrentTime(seekToSeconds) here; the video's timeupdate event will handle it
   }, [seekToSeconds]);
 
   const handleMouseMove = useCallback(() => {
@@ -245,8 +251,40 @@ export default function VideoPlayer({
       }`}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
-      onClick={togglePlay}
+      onClick={(e) => {
+        const now = Date.now();
+        const tapX = e.clientX;
+        const rect = containerRef.current?.getBoundingClientRect();
+        
+        if (rect && lastTapRef.current && now - lastTapRef.current.time < 300) {
+          // Double tap detected
+          const relativeX = (tapX - rect.left) / rect.width;
+          if (relativeX < 0.4) {
+            seekBy(-10);
+            onToast?.("Rewind 10s");
+          } else if (relativeX > 0.6) {
+            seekBy(10);
+            onToast?.("Forward 10s");
+          }
+          lastTapRef.current = null;
+          return;
+        }
+        
+        lastTapRef.current = { time: now, x: tapX };
+        if (!isTouchDevice) togglePlay();
+        else setShowControls(true);
+      }}
     >
+      {/* Tap Overlay for Mobile Controls Toggle (since main onClick is now for double-tap) */}
+      {isTouchDevice && (
+        <div 
+          className="absolute inset-0 z-10" 
+          onClick={(e) => {
+             e.stopPropagation();
+             setShowControls(!showControls);
+          }}
+        />
+      )}
       <video
         ref={videoRef}
         src={src}
@@ -319,8 +357,8 @@ export default function VideoPlayer({
             <div className="pointer-events-auto mt-auto flex w-full flex-col gap-4 bg-black/22 p-3 backdrop-blur-sm sm:p-5">
               <div className="flex items-center gap-3 sm:gap-4">
                 <span className="text-xs font-medium tabular-nums text-white/90 shadow-sm sm:text-sm">{formatTimestamp(currentTime)}</span>
-                <div className="relative flex-1">
-                  <div className="relative h-2 overflow-hidden rounded-full bg-white/18 shadow-inner">
+                <div className="relative flex-1 group/seekbar">
+                  <div className="relative h-2 sm:h-2 overflow-hidden rounded-full bg-white/18 shadow-inner">
                     <motion.div
                       className="absolute inset-y-0 left-0 rounded-full bg-[var(--player-accent,#a435f0)]"
                       style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
@@ -346,7 +384,7 @@ export default function VideoPlayer({
                     value={currentTime}
                     onChange={handleSeek}
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    className="absolute inset-[-10px] sm:inset-0 h-[calc(100%+20px)] sm:h-full w-[calc(100%+20px)] sm:w-full cursor-pointer opacity-0 z-20"
                   />
                 </div>
                 <span className="text-xs font-medium tabular-nums text-white/90 shadow-sm sm:text-sm">{formatTimestamp(duration)}</span>
@@ -406,27 +444,29 @@ export default function VideoPlayer({
                     <Forward className="h-5 w-5 sm:h-6 sm:w-6" />
                   </button>
 
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleMute();
-                      }}
-                      className="text-white transition-colors hover:text-[var(--player-accent,#a435f0)]"
-                    >
-                      {isMuted || volume === 0 ? <VolumeX className="h-5 w-5 sm:h-6 sm:w-6" /> : <Volume2 className="h-5 w-5 sm:h-6 sm:w-6" />}
-                    </button>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      value={isMuted ? 0 : volume}
-                      onChange={handleVolumeChange}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-16 cursor-pointer accent-[var(--player-accent,#a435f0)] sm:w-24"
-                    />
-                  </div>
+                  {!isTouchDevice && (
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleMute();
+                        }}
+                        className="text-white transition-colors hover:text-[var(--player-accent,#a435f0)]"
+                      >
+                        {isMuted || volume === 0 ? <VolumeX className="h-5 w-5 sm:h-6 sm:w-6" /> : <Volume2 className="h-5 w-5 sm:h-6 sm:w-6" />}
+                      </button>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={isMuted ? 0 : volume}
+                        onChange={handleVolumeChange}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-16 cursor-pointer accent-[var(--player-accent,#a435f0)] sm:w-24"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">

@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { BookOpen, LayoutGrid, LogOut, ShieldCheck } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import Image from "next/image";
 
 export default function ClientNav({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<{ email?: string; avatar_url?: string } | null>(null);
@@ -100,7 +101,7 @@ export default function ClientNav({ children }: { children: React.ReactNode }) {
 
             <div className="theme-nav-user flex items-center gap-3 rounded-full px-2 py-2">
               {user?.avatar_url ? (
-                <img src={user.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
+                <Image src={user.avatar_url} alt="User Avatar" width={40} height={40} className="rounded-full object-cover" unoptimized />
               ) : (
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-soft)] text-sm font-bold text-[var(--accent-strong)]">
                   {user?.email?.[0]?.toUpperCase() || "U"}
