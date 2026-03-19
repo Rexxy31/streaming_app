@@ -79,11 +79,19 @@ public class S3Service {
 
     @Async
     public void scanAndSyncAsync() {
+        if (isScanning) {
+            log.warn("S3 scan or refresh already in progress. Skipping.");
+            return;
+        }
         scanAndSync();
     }
 
     @Async
     public void refreshAllMetadataAsync() {
+        if (isScanning) {
+            log.warn("S3 scan or refresh already in progress. Skipping.");
+            return;
+        }
         refreshAllMetadata();
     }
 
