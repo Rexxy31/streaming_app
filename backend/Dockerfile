@@ -8,6 +8,7 @@ RUN mvn clean package -DskipTests
 # Run stage
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
+RUN apk add --no-cache ffmpeg
 COPY --from=build /app/target/*.jar app.jar
 
 # Set environment variables with defaults

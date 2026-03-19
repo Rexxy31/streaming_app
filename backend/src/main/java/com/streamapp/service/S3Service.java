@@ -51,7 +51,7 @@ public class S3Service {
     private final LectureRepository lectureRepository;
     private final ExecutorService metadataExecutor = Executors.newFixedThreadPool(4);
     
-    @Value("${app.ffmpeg-path:C:\\Program Files\\Softdeluxe\\Free Download Manager\\ffmpeg.exe}")
+    @Value("${app.ffmpeg-path:/usr/bin/ffmpeg}")
     private String ffmpegPath;
 
     private final AtomicInteger currentCount = new AtomicInteger(0);
