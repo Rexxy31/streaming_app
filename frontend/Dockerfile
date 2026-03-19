@@ -20,6 +20,11 @@ ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_ADMIN_EMAIL=$NEXT_PUBLIC_ADMIN_EMAIL
 
+# Debug: verify env vars are present (showing only lengths for security)
+RUN echo "URL length: ${#NEXT_PUBLIC_SUPABASE_URL}" && \
+    echo "Key length: ${#NEXT_PUBLIC_SUPABASE_ANON_KEY}" && \
+    echo "API URL length: ${#NEXT_PUBLIC_API_URL}"
+
 RUN npm run build
 
 # Run stage
