@@ -54,13 +54,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     () => ({
       theme,
       setTheme: (nextTheme) => {
+        document.documentElement.classList.add("theme-transition");
         window.localStorage.setItem(STORAGE_KEY, nextTheme);
         window.dispatchEvent(new Event(THEME_EVENT));
+        setTimeout(() => {
+          document.documentElement.classList.remove("theme-transition");
+        }, 500);
       },
       toggleTheme: () => {
         const nextTheme = theme === "light" ? "dark" : "light";
+        document.documentElement.classList.add("theme-transition");
         window.localStorage.setItem(STORAGE_KEY, nextTheme);
         window.dispatchEvent(new Event(THEME_EVENT));
+        setTimeout(() => {
+          document.documentElement.classList.remove("theme-transition");
+        }, 500);
       },
     }),
     [theme]

@@ -48,6 +48,8 @@ aws:
 app:
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+  ffmpeg-path: ${FFMPEG_PATH:ffmpeg}
+  whisper-model: ${WHISPER_MODEL:medium}
 
 logging:
   level:

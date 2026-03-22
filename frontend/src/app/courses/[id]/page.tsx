@@ -17,8 +17,6 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { formatDisplayTitle } from "@/lib/courseTitles";
 import { formatTimestamp } from "@/lib/transcript";
 
-
-
 function formatDuration(seconds: number | null) {
   if (!seconds) return "";
   const minutes = Math.floor(seconds / 60);
@@ -133,40 +131,40 @@ export default function CourseDetailPage() {
 
   return (
     <main className="content-container py-8 md:py-12">
-      <Link href="/" className="btn-secondary mb-8 inline-flex w-fit items-center gap-2 border-none bg-transparent px-0 text-[var(--text-muted)] hover:bg-transparent hover:text-[var(--text)]">
+      <Link href="/" className="btn-secondary mb-8 inline-flex w-fit items-center gap-2 border-[var(--border)] bg-[var(--surface-strong)] px-4 py-2 text-sm font-semibold text-[var(--text-muted)] hover:bg-[var(--surface-dark-soft)] hover:text-white transition-all shadow-sm rounded-xl">
         <ArrowLeft className="h-4 w-4" />
         Back to Library
       </Link>
 
-      <div className="grid gap-10 lg:grid-cols-[1fr_380px]">
+      <div className="grid gap-10 lg:grid-cols-[1fr_400px]">
         <div className="space-y-10">
           <section>
             <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
               <div className="max-w-3xl">
                 <div className="flex items-center gap-3">
-                  <div className="pill-badge border-[var(--accent)]/20 bg-[var(--accent)]/5 text-[var(--accent)]">
+                  <div className="pill-badge border-[var(--accent)]/20 bg-[var(--accent)]/10 text-[var(--accent-strong)] dark:text-[var(--accent)] shadow-sm">
                     <Sparkles className="h-3 w-3" />
                     Premium Content
                   </div>
-                  <div className="text-xs font-medium text-[var(--text-muted)]">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                     {course?.totalLectures} Lessons &bull; {Math.round(totalMinutes)} mins
                   </div>
                 </div>
-                <h1 className="mt-4 text-4xl font-bold leading-tight tracking-tight text-[var(--text)] md:text-5xl" style={{ fontFamily: "var(--font-display), sans-serif" }}>
+                <h1 className="mt-5 text-4xl font-extrabold leading-tight tracking-tight text-[var(--text)] md:text-5xl" style={{ fontFamily: "var(--font-display)" }}>
                   {formatDisplayTitle(course?.title || "") || "Course Details"}
                 </h1>
-                <p className="mt-4 text-lg leading-relaxed text-[var(--text-muted)]">
+                <p className="mt-4 text-lg leading-relaxed text-[var(--text-muted)] font-medium">
                   {course?.description || "Master these concepts with our lesson-level search and integrated transcripts."}
                 </p>
               </div>
 
-              <div className="flex shrink-0 gap-2">
+              <div className="flex shrink-0 gap-3">
                 <button
                   onClick={handleToggleFavorite}
-                  className={`flex h-12 w-12 items-center justify-center rounded-2xl border transition-all ${
+                  className={`flex h-12 w-12 items-center justify-center rounded-2xl border transition-all hover:scale-105 active:scale-95 shadow-sm ${
                     favorites[courseId]
-                      ? "border-red-500/20 bg-red-500/10 text-red-500"
-                      : "border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)] hover:bg-[var(--surface)]"
+                      ? "border-red-500/30 bg-red-500/10 text-red-500"
+                      : "border-[var(--border)] bg-[var(--surface-strong)] text-[var(--text-muted)] hover:border-[var(--border-strong)]"
                   }`}
                 >
                   <Heart className={`h-5 w-5 ${favorites[courseId] ? "fill-current" : ""}`} />
@@ -174,7 +172,7 @@ export default function CourseDetailPage() {
                 {course?.bestNextLectureId ? (
                   <Link
                     href={`/courses/${courseId}/watch/${course.bestNextLectureId}`}
-                    className="btn-primary h-12 px-6"
+                    className="btn-primary h-12 px-8 shadow-[0_8px_20px_var(--accent-wash)] hover:shadow-[0_12px_24px_var(--accent-wash)] transition-all hover:-translate-y-0.5"
                   >
                     <PlayCircle className="h-5 w-5" />
                     {course.completedLectures === 0 ? "Start Learning" : "Continue"}
@@ -213,33 +211,33 @@ export default function CourseDetailPage() {
 
             <div className="space-y-6">
               {filteredSections.map((section) => (
-                <div key={section.id} className="glass-card overflow-hidden bg-[var(--surface)]">
-                  <div className="border-b border-[var(--border)] bg-[var(--surface-muted)]/50 px-6 py-4">
-                    <h4 className="font-bold text-[var(--text)]">{section.title}</h4>
+                <div key={section.id} className="glass-card overflow-hidden bg-[var(--surface-strong)] shadow-sm border-[var(--border)] transition-shadow hover:shadow-md hover:border-[var(--border-strong)]">
+                  <div className="border-b border-[var(--border)] bg-[var(--bg-muted)]/50 px-6 py-4">
+                    <h4 className="font-bold text-[var(--text)] text-lg">{section.title}</h4>
                   </div>
                   <div className="divide-y divide-[var(--border)]">
                     {section.lectures.map((lecture) => (
                       <Link
                         key={lecture.id}
                         href={`/courses/${courseId}/watch/${lecture.id}`}
-                        className="group flex items-center justify-between px-6 py-4 transition-colors hover:bg-[var(--accent)]/5"
+                        className="group flex items-center justify-between px-6 py-5 transition-all hover:bg-[var(--accent-wash)]"
                       >
                         <div className="flex items-center gap-4 overflow-hidden">
-                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all ${
+                          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-all shadow-sm ${
                             lecture.completed
-                              ? "bg-green-500/10 text-green-500"
-                              : "bg-[var(--surface-muted)] text-[var(--text-muted)] group-hover:bg-[var(--accent)]/10 group-hover:text-[var(--accent)]"
+                              ? "bg-green-500/10 text-green-600 dark:text-green-400 group-hover:bg-green-500/20"
+                              : "bg-[var(--bg-muted)] text-[var(--text-muted)] group-hover:bg-[var(--accent)] group-hover:text-white group-hover:shadow-[0_4px_12px_var(--accent-wash)]"
                           }`}>
                             <PlayCircle className="h-5 w-5" />
                           </div>
                           <div className="overflow-hidden">
-                            <p className="font-medium text-[var(--text)] line-clamp-1 group-hover:text-[var(--accent)] transition-colors">
+                            <p className="font-semibold text-[var(--text)] line-clamp-1 group-hover:text-[var(--accent)] transition-colors">
                               {lecture.title}
                             </p>
-                            <div className="mt-1 flex items-center gap-3 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+                            <div className="mt-1.5 flex items-center gap-3 text-[10px] uppercase tracking-wider font-semibold text-[var(--text-muted)]">
                               <span>{formatDuration(lecture.durationSeconds)}</span>
                               {lecture.hasSubtitle && (
-                                <span className="flex items-center gap-1 rounded bg-[var(--border)] px-1 py-0.5 text-[8px] font-bold">
+                                <span className="flex items-center gap-1 rounded bg-[var(--border)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--text)]">
                                   CC
                                 </span>
                               )}
@@ -267,25 +265,25 @@ export default function CourseDetailPage() {
         </div>
 
         <aside className="space-y-8">
-          <div className="glass-card surface-grid bg-[var(--surface)] p-8">
+          <div className="glass-card surface-grid bg-[var(--surface-strong)] border-[var(--border)] p-8 shadow-sm">
             <h3 className="flex items-center gap-2 text-lg font-bold text-[var(--text)]">
-              <Sparkles className="h-5 w-5 text-[var(--accent)]" />
+              <Sparkles className="h-5 w-5 text-[var(--accent-strong)] dark:text-[var(--accent)]" />
               Course Progress
             </h3>
             <div className="mt-6 space-y-4">
               <div className="flex items-end justify-between">
                 <div>
-                  <p className="text-3xl font-bold text-[var(--text)]">{Math.round(course?.progressPercentage || 0)}%</p>
-                  <p className="text-xs font-medium text-[var(--text-muted)]">Overall completion</p>
+                  <p className="text-4xl font-extrabold text-[var(--text)] tracking-tight">{Math.round(course?.progressPercentage || 0)}%</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mt-1">Overall completion</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold text-[var(--text)]">{course?.completedLectures} / {course?.totalLectures}</p>
-                  <p className="text-xs font-medium text-[var(--text-muted)]">Lessons done</p>
+                  <p className="text-base font-bold text-[var(--text)]">{course?.completedLectures} / {course?.totalLectures}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)] mt-1">Lessons done</p>
                 </div>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--border)]">
+              <div className="h-3 w-full overflow-hidden rounded-full bg-[var(--bg-muted)] shadow-inner">
                 <div
-                  className="h-full bg-[var(--accent)] transition-all duration-700 ease-out"
+                  className="h-full bg-gradient-to-r from-[var(--accent)] to-blue-500 transition-all duration-700 ease-out shadow-[0_0_10px_var(--accent-wash)]"
                   style={{ width: `${course?.progressPercentage || 0}%` }}
                 />
               </div>

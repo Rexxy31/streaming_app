@@ -110,69 +110,72 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="content-container py-8 md:py-10">
-      <section className="hero-panel surface-grid relative overflow-hidden px-6 py-8 text-white md:px-10 md:py-12">
-        <div className="relative z-10 grid gap-8 lg:grid-cols-[1.45fr_0.95fr]">
+    <main className="content-container py-8 md:py-12">
+      <section className="hero-panel surface-grid relative overflow-hidden px-6 py-12 md:px-12 md:py-16 border border-[var(--border-strong)] shadow-[var(--shadow-card)]" style={{ background: 'linear-gradient(to bottom right, var(--surface-strong), var(--surface))' }}>
+        <div className="relative z-10 grid gap-10 lg:grid-cols-[1.45fr_0.95fr] items-center">
           <div className="max-w-3xl">
-            <div className="pill-badge mb-5 border-white/10 bg-white/10 text-white/78">
-              <Sparkles className="h-3.5 w-3.5" />
+            <div className="pill-badge mb-6 border-[var(--accent-wash)] bg-[var(--accent-wash)] text-[var(--accent-strong)] dark:text-[var(--accent)] animate-pulse shadow-sm">
+              <Sparkles className="h-4 w-4" />
               Smarter streaming classroom
             </div>
-            <h1 className="max-w-2xl text-4xl font-bold leading-tight md:text-6xl" style={{ fontFamily: "var(--font-display), sans-serif" }}>
-              Continue better, search deeper, and move through your library with less friction.
+            <h1 className="max-w-2xl text-5xl font-extrabold leading-[1.15] tracking-tight md:text-7xl text-[var(--text)]" style={{ fontFamily: "var(--font-display)" }}>
+              Continue better, search deeper.
             </h1>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-white/72 md:text-lg">
-              Lesson-level discovery now surfaces matching lectures and transcript hits, while continue-learning cards help you pick up where you left off or finish what is almost done.
+            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[var(--text-muted)] md:text-xl font-medium">
+              Lesson-level discovery now surfaces matching lectures and transcript hits. Pick up exactly where you left off.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-10 flex flex-wrap items-center gap-4">
               {continueLearning?.pickUpWhereYouLeftOff ? (
-                <Link href={`/courses/${continueLearning.pickUpWhereYouLeftOff.courseId}/watch/${continueLearning.pickUpWhereYouLeftOff.lectureId}`} className="btn-primary px-6 py-4 text-sm">
-                  <PlayCircle className="h-4 w-4" />
-                  Resume best next lesson
+                <Link href={`/courses/${continueLearning.pickUpWhereYouLeftOff.courseId}/watch/${continueLearning.pickUpWhereYouLeftOff.lectureId}`} className="btn-primary px-8 py-4 text-base shadow-[0_8px_20px_var(--accent-wash)] hover:shadow-[0_12px_24px_var(--accent-wash)]">
+                  <PlayCircle className="h-5 w-5" />
+                  Resume lesson
                 </Link>
               ) : null}
-              <Link href="#library" className="btn-secondary border-white/10 bg-white/10 px-6 py-4 text-sm text-white hover:bg-white/16 hover:text-white">
-                <BookOpen className="h-4 w-4" />
-                Browse lesson library
+              <Link href="#library" className="btn-secondary px-8 py-4 text-base bg-[var(--surface-strong)] hover:bg-[var(--surface-dark-soft)] hover:text-[var(--text)] dark:hover:text-[var(--bg)] transition-all border-[var(--border-strong)] shadow-sm">
+                <BookOpen className="h-5 w-5" />
+                Browse library
               </Link>
             </div>
           </div>
 
-          <div className="relative hidden flex-col justify-center lg:flex">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="glass-card border-white/10 bg-white/5 p-6 backdrop-blur-md">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent)]/20 text-[var(--accent)]">
-                    <Trophy className="h-5 w-5" />
+          <div className="relative hidden flex-col justify-center lg:flex pl-8">
+            <div className="grid grid-cols-2 gap-5">
+              <div className="glass-card border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm hover:shadow-md transition-shadow hover:border-[var(--border-strong)]">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--accent-wash)] text-[var(--accent-strong)] dark:text-[var(--accent)]">
+                    <Trophy className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-white">{completedCourses}</p>
-                    <p className="text-xs uppercase tracking-wider text-white/56">Completed</p>
+                    <p className="text-3xl font-extrabold text-[var(--text)]">{completedCourses}</p>
+                    <p className="text-xs uppercase tracking-[0.15em] font-semibold text-[var(--text-muted)] mt-1">Completed</p>
                   </div>
                 </div>
               </div>
-              <div className="glass-card border-white/10 bg-white/5 p-6 backdrop-blur-md">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/20 text-orange-400">
-                    <Clock3 className="h-5 w-5" />
+              <div className="glass-card border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm hover:shadow-md transition-shadow hover:border-[var(--border-strong)]">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                    <Clock3 className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-white">{formatCatalogDuration(totalMinutes)}</p>
-                    <p className="text-xs uppercase tracking-wider text-white/56">Learning Time</p>
+                    <p className="text-3xl font-extrabold text-[var(--text)]">{formatCatalogDuration(totalMinutes)}</p>
+                    <p className="text-xs uppercase tracking-[0.15em] font-semibold text-[var(--text-muted)] mt-1">Learning Time</p>
                   </div>
                 </div>
               </div>
             </div>
-            <div className="mt-4 flex animate-pulse items-center gap-3 rounded-2xl border border-white/10 bg-[var(--accent)]/10 p-5 backdrop-blur-md">
-              <div className="h-2 w-2 rounded-full bg-[var(--accent)]" />
-              <p className="text-sm font-medium text-white/90">
+            <div className="mt-6 flex items-center gap-4 rounded-2xl border border-[var(--border-strong)] bg-[var(--surface-strong)] p-5 shadow-sm">
+              <div className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--accent-strong)]"></span>
+              </div>
+              <p className="text-sm font-semibold text-[var(--text)]">
                 {inProgressCourses} courses currently in progress
               </p>
             </div>
           </div>
         </div>
 
-        <div className="absolute right-[-10%] top-[-100%] h-[200%] w-[50%] animate-pulse rounded-full bg-[var(--accent)]/15 blur-[120px]" />
+        <div className="absolute right-[-10%] top-[-50%] h-[150%] w-[60%] rounded-full bg-[var(--accent-wash)] blur-[100px] pointer-events-none opacity-60 dark:opacity-30 mix-blend-multiply dark:mix-blend-screen" />
       </section>
 
       <section id="library" className="mt-16">
@@ -247,23 +250,25 @@ export default function Dashboard() {
             <p className="mt-1 text-[var(--text-muted)]">Try adjusting your filters or search terms.</p>
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredCourses.map((course) => (
-              <div key={course.id} className="course-card glass-card group flex flex-col border-none bg-[var(--surface)] hover:z-10">
+              <div
+                key={course.id}
+                className="glass-card-shimmer group relative flex flex-col overflow-hidden rounded-[24px] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-1 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-card)]"
+              >
                 <div
-                  className="relative aspect-video w-full"
-                  style={{ backgroundColor: getCourseCover(course.title) }}
+                  className="relative aspect-[16/9] w-full overflow-hidden bg-[var(--bg-muted)]" style={{ backgroundColor: getCourseCover(course.title) }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   <div className="absolute bottom-4 left-4 right-4">
-                    <p className="text-sm font-bold text-white line-clamp-2">{formatDisplayTitle(course.title)}</p>
+                    <p className="text-sm font-bold text-white line-clamp-2 md:text-base drop-shadow-md">{formatDisplayTitle(course.title)}</p>
                   </div>
                   <button
                     onClick={(e) => {
                       e.preventDefault();
                       handleToggleFavorite(course.id);
                     }}
-                    className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition-all hover:bg-white hover:text-red-500"
+                    className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition-all hover:bg-white hover:text-red-500 shadow-sm"
                   >
                     <Heart className={`h-4 w-4 ${favoriteCourses[course.id] ? "fill-current text-red-500" : ""}`} />
                   </button>

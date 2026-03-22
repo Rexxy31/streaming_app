@@ -57,9 +57,16 @@ public class S3Service {
     private final AtomicInteger currentCount = new AtomicInteger(0);
     private final AtomicInteger totalCount = new AtomicInteger(0);
     private final Map<String, Optional<String>> subtitleKeyCache = new ConcurrentHashMap<>();
+    private final Map<String, Long> subtitleNegativeCacheTime = new ConcurrentHashMap<>();
     private final Map<String, List<TranscriptCueDTO>> transcriptCache = new ConcurrentHashMap<>();
     private volatile String currentStatus = "Idle";
     private volatile boolean isScanning = false;
+
+    public void clearSubtitleCache(String s3Key) {
+        subtitleKeyCache.remove(s3Key);
+        subtitleNegativeCacheTime.remove(s3Key);
+        transcriptCache.remove(s3Key);
+    }
 
     public SyncProgressDTO getCurrentProgress() {
         return SyncProgressDTO.builder()
@@ -123,7 +130,15 @@ public class S3Service {
 
     public Optional<String> findSubtitleKey(String s3Key) {
         if (subtitleKeyCache.containsKey(s3Key)) {
-            return subtitleKeyCache.get(s3Key);
+            Optional<String> cached = subtitleKeyCache.get(s3Key);
+            if (cached.isPresent()) return cached;
+            // Negative result — check if it's expired (5 min TTL)
+            Long cachedAt = subtitleNegativeCacheTime.get(s3Key);
+            if (cachedAt != null && System.currentTimeMillis() - cachedAt < 300_000) {
+                return cached;
+            }
+            subtitleKeyCache.remove(s3Key);
+            subtitleNegativeCacheTime.remove(s3Key);
         }
 
         String baseKey = s3Key.replaceFirst("\\.[^.]+$", "");
@@ -137,6 +152,9 @@ public class S3Service {
         }
         Optional<String> found = findSubtitleKeyInSameDirectory(s3Key);
         subtitleKeyCache.put(s3Key, found);
+        if (found.isEmpty()) {
+            subtitleNegativeCacheTime.put(s3Key, System.currentTimeMillis());
+        }
         return found;
     }
 

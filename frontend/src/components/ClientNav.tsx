@@ -57,8 +57,8 @@ export default function ClientNav({ children }: { children: React.ReactNode }) {
         <div className="content-container flex min-h-[76px] items-center justify-between gap-4">
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--accent)] text-white shadow-[0_14px_28px_rgba(164,53,240,0.22)]">
-                <BookOpen className="h-5 w-5" />
+              <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl shadow-[0_14px_28px_rgba(164,53,240,0.22)]">
+                <Image src="/logo.png" alt="StreamApp Logo" fill className="object-cover" />
               </div>
               <div>
                 <p

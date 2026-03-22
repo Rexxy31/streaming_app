@@ -35,7 +35,7 @@ public class LearningController {
         return learningService.updateFavoriteCourse(userId, Objects.requireNonNull(courseId), favorite);
     }
 
-    @GetMapping("/notes/{lectureId}")
+    @GetMapping("/lectures/{lectureId}/notes")
     public List<LectureNoteDTO> getNotes(
             @PathVariable UUID lectureId,
             @AuthenticationPrincipal Jwt jwt) {
@@ -43,7 +43,7 @@ public class LearningController {
         return learningService.getNotes(userId, Objects.requireNonNull(lectureId));
     }
 
-    @PostMapping("/notes/{lectureId}")
+    @PostMapping("/lectures/{lectureId}/notes")
     public LectureNoteDTO createNote(
             @PathVariable UUID lectureId,
             @Valid @RequestBody LectureNoteCreateDTO dto,
@@ -70,7 +70,7 @@ public class LearningController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/bookmarks/{lectureId}")
+    @GetMapping("/lectures/{lectureId}/bookmarks")
     public List<LectureBookmarkDTO> getBookmarks(
             @PathVariable UUID lectureId,
             @AuthenticationPrincipal Jwt jwt) {
@@ -78,7 +78,7 @@ public class LearningController {
         return learningService.getBookmarks(userId, Objects.requireNonNull(lectureId));
     }
 
-    @PostMapping("/bookmarks/{lectureId}")
+    @PostMapping("/lectures/{lectureId}/bookmarks")
     public LectureBookmarkDTO createBookmark(
             @PathVariable UUID lectureId,
             @Valid @RequestBody LectureBookmarkCreateDTO dto,
@@ -114,7 +114,7 @@ public class LearningController {
         return learningService.searchLessons(userId, query, courseId);
     }
 
-    @GetMapping("/study-guide/{courseId}")
+    @GetMapping("/courses/{courseId}/study-guide")
     public StudyGuideDTO getStudyGuide(
             @PathVariable UUID courseId,
             @AuthenticationPrincipal Jwt jwt) {
@@ -122,7 +122,7 @@ public class LearningController {
         return learningService.getStudyGuide(userId, Objects.requireNonNull(courseId));
     }
 
-    @GetMapping("/continue")
+    @GetMapping("/continue-learning")
     public ContinueLearningDTO getContinueLearning(@AuthenticationPrincipal Jwt jwt) {
         String userId = Objects.requireNonNull(jwt.getSubject(), "User ID from JWT must not be null");
         return learningService.getContinueLearning(userId);

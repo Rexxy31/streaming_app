@@ -243,7 +243,7 @@ export interface SyncProgress {
   percentage: number;
 };
 
-const subtitleCache = new Map<string, Promise<string | null>>();
+
 
 export function fetchCourses(): Promise<CourseDTO[]> {
   return authedJson<CourseDTO[]>(`${API_URL}/courses`);
@@ -257,19 +257,18 @@ export function fetchStreamUrl(lectureId: string): Promise<StreamUrlDTO> {
   return authedJson<StreamUrlDTO>(`${API_URL}/lectures/${lectureId}/stream-url`);
 }
 
-export function fetchLectureSubtitle(lectureId: string): Promise<string | null> {
-  if (!subtitleCache.has(lectureId)) {
-    subtitleCache.set(
-      lectureId,
-      (async () => {
-        const res = await authedFetch(`${API_URL}/lectures/${lectureId}/subtitle`);
-        if (res.status === 204) return null;
-        if (!res.ok) throw new Error("Failed to fetch lecture subtitle");
-        return res.text();
-      })()
-    );
+const subtitleCache = new Map<string, string>();
+
+export async function fetchLectureSubtitle(lectureId: string): Promise<string | null> {
+  if (subtitleCache.has(lectureId)) {
+    return subtitleCache.get(lectureId)!;
   }
-  return subtitleCache.get(lectureId)!;
+  const res = await authedFetch(`${API_URL}/lectures/${lectureId}/subtitles`);
+  if (res.status === 204) return null;
+  if (!res.ok) return null;
+  const text = await res.text();
+  if (text) subtitleCache.set(lectureId, text);
+  return text;
 }
 
 export async function updateProgress(
@@ -419,4 +418,11 @@ export function fetchCourseHealth(): Promise<AdminHealthSummaryDTO> {
 
 export function fetchDashboard(): Promise<DashboardDTO> {
   return authedJson<DashboardDTO>(`${API_URL}/learning/dashboard`);
+}
+
+export async function generateSubtitles(courseId?: string): Promise<{ message: string }> {
+  const url = courseId
+    ? `${API_URL}/admin/generate-subtitles?courseId=${courseId}`
+    : `${API_URL}/admin/generate-subtitles`;
+  return authedJson<{ message: string }>(url, { method: "POST" });
 }

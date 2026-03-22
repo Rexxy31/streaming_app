@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
+  Captions,
   CheckCircle2,
   Clock,
   Database,
@@ -22,6 +23,7 @@ import {
   fetchCourses,
   fetchCourseHealth,
   fetchScanStatus,
+  generateSubtitles,
   refreshMetadata,
   scanS3,
 } from "@/lib/api";
@@ -35,6 +37,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 export default function AdminDashboard() {
   const [scanning, setScanning] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [generatingSubtitles, setGeneratingSubtitles] = useState(false);
   const [progress, setProgress] = useState<SyncProgress | null>(null);
   const [health, setHealth] = useState<AdminHealthSummaryDTO | null>(null);
   const [loadingHealth, setLoadingHealth] = useState(true);
@@ -111,10 +114,21 @@ export default function AdminDashboard() {
       } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch("/api/admin/users", {
+      let res = await fetch("/api/admin/users", {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      if (!res.ok) throw new Error("Failed to fetch users");
+
+      // Retry once on 401 — session may not be ready yet
+      if (res.status === 401) {
+        await new Promise((r) => setTimeout(r, 1000));
+        const { data: { session: freshSession } } = await supabase.auth.getSession();
+        if (!freshSession) return;
+        res = await fetch("/api/admin/users", {
+          headers: { Authorization: `Bearer ${freshSession.access_token}` },
+        });
+      }
+
+      if (!res.ok) return;
       const data = await res.json();
       setUsers(data.users || []);
     } catch (error) {
@@ -125,13 +139,25 @@ export default function AdminDashboard() {
   }, [supabase.auth]);
 
   useEffect(() => {
-    fetchUsers();
-    fetchHealth();
-  }, [fetchUsers, fetchHealth]);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        fetchUsers();
+        fetchHealth();
+      }
+    });
+    // Also try immediately in case session is already available
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        fetchUsers();
+        fetchHealth();
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [fetchUsers, fetchHealth, supabase.auth]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (scanning || refreshing) {
+    if (scanning || refreshing || generatingSubtitles) {
       interval = setInterval(async () => {
         try {
           const status = await fetchScanStatus();
@@ -139,6 +165,7 @@ export default function AdminDashboard() {
           if (!status.active) {
             setScanning(false);
             setRefreshing(false);
+            setGeneratingSubtitles(false);
             fetchHealth();
           }
         } catch (error) {
@@ -150,7 +177,7 @@ export default function AdminDashboard() {
     }
 
     return () => clearInterval(interval);
-  }, [refreshing, scanning, fetchHealth]);
+  }, [refreshing, scanning, generatingSubtitles, fetchHealth]);
 
   async function handleInviteUser(e: React.FormEvent) {
     e.preventDefault();
@@ -210,6 +237,17 @@ export default function AdminDashboard() {
     }
   }
 
+  async function handleGenerateSubtitles() {
+    setGeneratingSubtitles(true);
+    setNotification(null);
+    try {
+      await generateSubtitles();
+    } catch (error: unknown) {
+      setNotification({ type: "error", message: getErrorMessage(error, "Failed to start subtitle generation.") });
+      setGeneratingSubtitles(false);
+    }
+  }
+
   function getSubtitleBadgeClass(missingSubtitleCount: number) {
     if (missingSubtitleCount === 0) {
       return "border border-emerald-300 bg-emerald-100 text-black dark:border-emerald-400/30 dark:bg-emerald-500/18 dark:text-emerald-100";
@@ -225,36 +263,59 @@ export default function AdminDashboard() {
 
   return (
     <main className="content-container py-8 md:py-10">
-      <section className="hero-panel overflow-hidden px-6 py-8 text-white md:px-10 md:py-10">
+      <section className="hero-panel surface-grid overflow-hidden px-6 py-8 md:px-10 md:py-10 border border-[var(--border-strong)] shadow-[var(--shadow-card)]" style={{ background: 'linear-gradient(to bottom right, var(--surface-strong), var(--surface))' }}>
         <div className="grid gap-6 lg:grid-cols-[1.5fr_0.9fr]">
           <div>
-            <div className="pill-badge border-white/10 bg-white/10 text-white/74">
+            <div className="pill-badge border-[var(--accent-wash)] bg-[var(--accent-wash)] text-[var(--accent-strong)] dark:text-[var(--accent)] shadow-sm">
               <ShieldCheck className="h-3.5 w-3.5" />
               Admin control center
             </div>
-            <h1 className="mt-5 text-4xl font-bold leading-tight md:text-5xl" style={{ fontFamily: "var(--font-display), sans-serif" }}>
+            <h1 className="mt-5 text-4xl font-extrabold leading-tight md:text-5xl text-[var(--text)] tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
               Manage learner access, sync the catalog, and diagnose missing media from one place.
             </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-white/70">
+            <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--text-muted)] font-medium">
               Subtitle status, missing-video checks, and per-course health diagnostics now sit alongside import and user-management tools.
             </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-1">
-            <div className="stat-chip">
-              <span className="text-xs font-bold uppercase tracking-[0.22em] text-white/55">Users</span>
-              <span className="text-3xl font-bold">{users.length}</span>
-              <span className="text-sm text-white/65">Accounts with access</span>
+            <div className="glass-card flex items-center gap-4 border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm hover:shadow-md transition-all hover:border-[var(--border-strong)]">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <Users className="h-6 w-6" />
+              </div>
+              <div>
+                <span className="block text-xs font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Users</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-extrabold text-[var(--text)]">{users.length}</span>
+                  <span className="text-xs font-medium text-[var(--text-muted)]">Accounts with access</span>
+                </div>
+              </div>
             </div>
-            <div className="stat-chip">
-              <span className="text-xs font-bold uppercase tracking-[0.22em] text-white/55">Missing videos</span>
-              <span className="text-3xl font-bold">{health?.totalMissingVideos ?? 0}</span>
-              <span className="text-sm text-white/65">Across the whole catalog</span>
+
+            <div className="glass-card flex items-center gap-4 border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm hover:shadow-md transition-all hover:border-[var(--border-strong)]">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--accent-wash)] text-[var(--accent-strong)] dark:text-[var(--accent)]">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <div>
+                <span className="block text-xs font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Missing videos</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-extrabold text-[var(--text)]">{health?.totalMissingVideos ?? 0}</span>
+                  <span className="text-xs font-medium text-[var(--text-muted)]">Across the whole catalog</span>
+                </div>
+              </div>
             </div>
-            <div className="stat-chip">
-              <span className="text-xs font-bold uppercase tracking-[0.22em] text-white/55">Missing subtitles</span>
-              <span className="text-3xl font-bold">{health?.totalMissingSubtitles ?? 0}</span>
-              <span className="text-sm text-white/65">Lessons not transcript-ready</span>
+
+            <div className="glass-card flex items-center gap-4 border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm hover:shadow-md transition-all hover:border-[var(--border-strong)]">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                <Captions className="h-6 w-6" />
+              </div>
+              <div>
+                <span className="block text-xs font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Missing subtitles</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-extrabold text-[var(--text)]">{health?.totalMissingSubtitles ?? 0}</span>
+                  <span className="text-xs font-medium text-[var(--text-muted)]">Lessons not transcript-ready</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -280,12 +341,12 @@ export default function AdminDashboard() {
             </p>
 
             {progress && progress.active ? (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-5 overflow-hidden rounded-[22px] border border-black/8 bg-[var(--bg-muted)] p-4">
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-5 overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--bg-muted)] p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-4 text-sm">
                   <span className="font-semibold text-[var(--text)]">{progress.status}</span>
                   <span className="font-bold text-[var(--accent-strong)]">{progress.percentage}%</span>
                 </div>
-                <div className="mt-3 h-3 overflow-hidden rounded-full bg-white">
+                <div className="mt-3 h-3 overflow-hidden rounded-full bg-[var(--surface-dark-soft)] border border-[var(--border)]">
                   <motion.div initial={{ width: 0 }} animate={{ width: `${progress.percentage}%` }} className="h-full rounded-full bg-[var(--accent)]" />
                 </div>
                 <p className="mt-2 text-xs text-[var(--text-muted)]">{progress.current} of {progress.total} items processed</p>
@@ -297,9 +358,13 @@ export default function AdminDashboard() {
                 {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
                 {scanning ? "Scanning S3..." : "Run deep scan"}
               </button>
-              <button onClick={handleRefreshMetadata} disabled={scanning || refreshing} className="btn-secondary w-full px-6 py-4 text-sm disabled:opacity-60">
+              <button onClick={handleRefreshMetadata} disabled={scanning || refreshing || generatingSubtitles} className="btn-secondary w-full px-6 py-4 text-sm disabled:opacity-60">
                 {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
                 {refreshing ? "Refreshing durations..." : "Populate missing durations"}
+              </button>
+              <button onClick={handleGenerateSubtitles} disabled={scanning || refreshing || generatingSubtitles} className="btn-secondary w-full px-6 py-4 text-sm disabled:opacity-60">
+                {generatingSubtitles ? <Loader2 className="h-4 w-4 animate-spin" /> : <Captions className="h-4 w-4" />}
+                {generatingSubtitles ? "Generating subtitles..." : "Generate missing subtitles"}
               </button>
             </div>
           </div>
@@ -318,9 +383,9 @@ export default function AdminDashboard() {
             </div>
 
             <form onSubmit={handleInviteUser} className="mt-5 space-y-4">
-              <div className="flex items-center gap-3 rounded-[20px] border border-black/8 bg-white px-4 py-4 shadow-[0_10px_30px_rgba(23,20,18,0.06)]">
+              <div className="flex items-center gap-3 rounded-[20px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 shadow-[var(--shadow-soft)]">
                 <Mail className="h-4 w-4 text-[var(--text-muted)]" />
-                <input type="email" required placeholder="Email address" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} className="w-full bg-transparent text-sm outline-none placeholder:text-[var(--text-muted)]" />
+                <input type="email" required placeholder="Email address" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} className="w-full bg-transparent text-sm text-[var(--text)] outline-none placeholder:text-[var(--text-muted)]" />
               </div>
               <button type="submit" disabled={inviting || !inviteEmail} className="btn-primary w-full px-6 py-4 text-sm disabled:opacity-60">
                 {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
