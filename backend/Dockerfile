@@ -20,6 +20,7 @@ COPY --from=build /app/target/*.jar app.jar
 
 # Set environment variables with defaults
 ENV PORT=8080
+ENV SPRING_PROFILES_ACTIVE=local
 EXPOSE ${PORT}
 
 # JVM performance flags for containers
